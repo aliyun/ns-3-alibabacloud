@@ -18,5 +18,8 @@ simulation/core.*
 simulation/.waf*-*
 simulation/cmake-cache/*
 simulation/cmake-cache/*
+simulation/build/
+cmake-build-*/
+.lock-ns3_linux_build
 
 !simulation/cmake-cache/.gitkeep
