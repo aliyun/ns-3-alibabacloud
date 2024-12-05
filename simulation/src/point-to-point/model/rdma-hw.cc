@@ -403,6 +403,7 @@ int RdmaHw::SendPacketComplete(Ptr<Packet> p, CustomHeader &ch)
 	uint32_t nic_idx = GetNicIdxOfQp(qp);
 	Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
 	SendComplete(qp);
+	return 0;
 }
 
 void RdmaHw::SendComplete(Ptr<RdmaQueuePair> qp)
