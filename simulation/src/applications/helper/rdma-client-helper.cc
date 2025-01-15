@@ -21,6 +21,7 @@
 #include "ns3/rdma-client.h"
 #include "ns3/uinteger.h"
 #include "ns3/string.h"
+#include "ns3/boolean.h"
 
 namespace ns3 {
 
@@ -29,7 +30,7 @@ RdmaClientHelper::RdmaClientHelper ()
 }
 
 RdmaClientHelper::RdmaClientHelper (uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint64_t size, uint32_t win, uint64_t baseRtt,
-        void (*msg_handler)(void* fun_arg), void* fun_arg, int tag, int src, int dest)
+        void (*msg_handler)(void* fun_arg), void* fun_arg, int tag, int src, int dest, bool passiveDestroy)
 {
 	m_factory.SetTypeId (RdmaClient::GetTypeId ());
 	SetAttribute ("PriorityGroup", UintegerValue (pg));
@@ -44,6 +45,7 @@ RdmaClientHelper::RdmaClientHelper (uint16_t pg, Ipv4Address sip, Ipv4Address di
   SetAttribute ("Src", UintegerValue (src));
   SetAttribute ("Dest", UintegerValue (dest));
   SetAttribute ("NVLS_enable", UintegerValue (0));
+  SetAttribute ("PassiveDestroy", BooleanValue (passiveDestroy));
   msg_handler = msg_handler;
   fun_arg = fun_arg;
 }

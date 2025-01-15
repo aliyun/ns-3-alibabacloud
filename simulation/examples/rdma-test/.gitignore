@@ -1,0 +1,5 @@
+outputs/*
+flows/*
+
+!flows/8to1.txt
+!outputs/plot_bw.py

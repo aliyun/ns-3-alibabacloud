@@ -2,11 +2,13 @@
 
 This repository contains an NS3-based network simulator that acts as a network backend for [SimAI](https://github.com/aliyun/SimAI).
 
-We are about to release a new dev branch featuring the following enhancements:
+We have release a new dev branch featuring the following enhancements in [**dev/qp**](https://github.com/aliyun/ns-3-alibabacloud/tree/dev/qp):
 1. **QP Logic Support**: Enables creation and destruction of QPs based on actual RDMA logic, allowing multiple messages to be carried by a pair of QPs.
 2. **NIC CC Configuration**: Supports perIP or perQP settings for enhanced flexibility.
 3. **Optimized Scheduling Logic**: Adheres to the Max-Min principle, resolving issues of underutilization and unfairness in network resource allocation.
 4. **Decoupling of the CC Module**: For improved modularity and efficiency.
+
+Thank [**@MXtremist**](https://github.com/MXtremist) for contributing to this feature.
 
 Welcome to join the SimAI community chat groups, with the DingTalk group on the left and the WeChat group on the right.
 

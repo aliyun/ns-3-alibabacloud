@@ -33,6 +33,7 @@ namespace ns3 {
 
 class Socket;
 class Packet;
+class RdmaQueuePair;
 
 /**
  * \ingroup rdmaclientserver
@@ -60,8 +61,25 @@ public:
   void SetPG (uint16_t pg);
   void SetSize(uint64_t size);
   void SetFn(void (*msg_handler)(void* fun_arg), void* fun_arg);
+  /**
+   * \brief callback when finish a message
+   */
   void Finish();
   void Sent();
+
+  Ptr<RdmaQueuePair> m_qp;
+  /**
+   * \brief call this function to push message to qp
+   */
+  void PushMessagetoQp(uint64_t size);
+  /**
+   * \brief call this function to finish the qp
+   */
+  void FinishQp();
+
+  uint16_t GetSourcePort(){
+    return m_sport;
+  }
 
 protected:
   virtual void DoDispose (void);
@@ -84,6 +102,7 @@ private:
   uint64_t src; 
   uint64_t dest; 
   uint32_t nvls_enable;
+  bool m_passiveDestroy; // if true, qp will destroy itself when no more message to send
 };
 
 } // namespace ns3

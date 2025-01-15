@@ -16,7 +16,12 @@ TypeId RdmaDriver::GetTypeId (void)
 				"SendComplete",
 				"A qp Send completes.",
 				MakeTraceSourceAccessor(&RdmaDriver::m_traceSendComplete),
-				"ns3::RdmaDriver::SendComplete");
+				"ns3::RdmaDriver::SendComplete")
+		.AddTraceSource(
+				"MessageComplete",
+				"A qp Message completes.",
+				MakeTraceSourceAccessor(&RdmaDriver::m_traceMessageComplete),
+				"ns3::RdmaDriver::MessageComplete");
 	return tid;
 }
 
@@ -54,7 +59,10 @@ void RdmaDriver::Init(void){
 	#endif
 	// RdmaHw do setup
 	m_rdma->SetNode(m_node);
-    m_rdma->Setup(MakeCallback(&RdmaDriver::QpComplete, this),MakeCallback(&RdmaDriver::SendComplete, this));
+        m_rdma->Setup(
+            MakeCallback(&RdmaDriver::QpComplete, this),
+            MakeCallback(&RdmaDriver::SendComplete, this),
+            MakeCallback(&RdmaDriver::MessageComplete, this));
 }
 
 void RdmaDriver::SetNode(Ptr<Node> node){
@@ -65,8 +73,12 @@ void RdmaDriver::SetRdmaHw(Ptr<RdmaHw> rdma){
 	m_rdma = rdma;
 }
 
-void RdmaDriver::AddQueuePair(uint32_t src, uint32_t dest, uint64_t tag, uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish, Callback<void> notifyAppSent){
-	m_rdma->AddQueuePair(src, dest, tag, size, pg, sip, dip, sport, dport, win, baseRtt, notifyAppFinish, notifyAppSent);
+Ptr<RdmaQueuePair> RdmaDriver::AddQueuePair(uint32_t src, uint32_t dest, uint64_t tag, uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish, Callback<void> notifyAppSent){
+	return m_rdma->AddQueuePair(src, dest, tag, size, pg, sip, dip, sport, dport, win, baseRtt, notifyAppFinish, notifyAppSent);
+}
+
+void RdmaDriver::FinishQueuePair(Ptr<RdmaQueuePair> q) {
+	m_rdma->QpComplete(q);
 }
 
 void RdmaDriver::EnbaleNVLS() {
@@ -83,5 +95,8 @@ void RdmaDriver::QpComplete(Ptr<RdmaQueuePair> q){
 
 void RdmaDriver::SendComplete(Ptr<RdmaQueuePair> q){
     m_traceSendComplete(q);
+}
+void RdmaDriver::MessageComplete(Ptr<RdmaQueuePair> q, uint64_t size) {
+	m_traceMessageComplete(q, size);
 }
 } // namespace ns3

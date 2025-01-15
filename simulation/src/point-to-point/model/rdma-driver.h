@@ -19,6 +19,7 @@ public:
 	// trace
 	TracedCallback<Ptr<RdmaQueuePair> > m_traceQpComplete;
     TracedCallback<Ptr<RdmaQueuePair> > m_traceSendComplete;
+	TracedCallback<Ptr<RdmaQueuePair>, uint64_t> m_traceMessageComplete;
 
     static TypeId GetTypeId (void);
 	RdmaDriver();
@@ -34,7 +35,8 @@ public:
 	void SetRdmaHw(Ptr<RdmaHw> rdma);
 
 	// add a queue pair
-	void AddQueuePair(uint32_t src, uint32_t dest, uint64_t tag, uint64_t size, uint16_t pg, Ipv4Address _sip, Ipv4Address _dip, uint16_t _sport, uint16_t _dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish, Callback<void> notifyAppSent);
+	Ptr<RdmaQueuePair> AddQueuePair(uint32_t src, uint32_t dest, uint64_t tag, uint64_t size, uint16_t pg, Ipv4Address _sip, Ipv4Address _dip, uint16_t _sport, uint16_t _dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish, Callback<void> notifyAppSent);
+	void FinishQueuePair(Ptr<RdmaQueuePair> q);
 
 	// enable NVLS
 	void EnbaleNVLS();
@@ -43,6 +45,7 @@ public:
 	// callback when qp completes
 	void QpComplete(Ptr<RdmaQueuePair> q);
     void SendComplete(Ptr<RdmaQueuePair> q);
+	void MessageComplete(Ptr<RdmaQueuePair> q, uint64_t size);
 };
 
 } // namespace ns3

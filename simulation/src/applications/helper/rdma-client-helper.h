@@ -52,7 +52,7 @@ public:
    */
 
   RdmaClientHelper (uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint64_t size, uint32_t win, uint64_t baseRtt,
-  void (*msg_handler)(void* fun_arg), void* fun_arg,int tag, int src, int dest);
+  void (*msg_handler)(void* fun_arg), void* fun_arg,int tag, int src, int dest, bool passiveDestroy=true);
 
   /**
    * Record an attribute to be set in each Application after it is is created.

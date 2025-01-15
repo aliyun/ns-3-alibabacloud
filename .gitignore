@@ -10,13 +10,23 @@ simulation/build/.old_srcdir
 simulation/build/scratch/*
 simulation/**/ns3.18-*
 simulation/mix/*fct.txt
+simulation/mix/*pfc.txt
 simulation/mix/*.tr*
 simulation/mix/qlen.txt
 simulation/monitor_output/*
 simulation/mix/*.tr--commscale=1*
+simulation/mix/pfc*.txt
+simulation/mix/fct*.txt
+simulation/mix/*/
+simulation/send*
+simulation/tmp*
 simulation/core.*
 simulation/.waf*-*
 simulation/cmake-cache/*
 simulation/cmake-cache/*
+simulation/.lock-ns3_linux_build
+
+analysis/*
 
 !simulation/cmake-cache/.gitkeep
+!simulation/mix/incast
