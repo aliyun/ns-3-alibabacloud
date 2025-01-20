@@ -48,6 +48,7 @@ RdmaQueuePair::RdmaQueuePair(
   m_var_win = false;
   m_rate = 0;
   m_nextAvail = Time(0);
+  lastPktSize = 0;
 }
 
 void RdmaQueuePair::SetSrc(uint32_t src) {
@@ -153,7 +154,12 @@ void RdmaQueuePair::PushMessage(
     Callback<void> notifyAppSent) {
   RdmaMessage msg;
   msg.m_size = size;
-  msg.m_startSeq = 0; // modify when finish an old message
+  if(m_messages.empty()) {
+    msg.m_startSeq = snd_nxt; // there are no old messages in the queue, so set start_seq to snd_nxt
+  } else {
+    msg.m_startSeq = 0; // there are old messages in the queue, so modify start_seq when finish an old message
+  }
+  
   msg.m_notifyAppFinish = notifyAppFinish;
   msg.m_notifyAppSent = notifyAppSent;
   m_messages.push(msg);
