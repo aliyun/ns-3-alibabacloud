@@ -1,19 +1,3 @@
-file(GLOB ASTRA_SIM_SOURCE_FILES 
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/workload/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/collective/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/topology/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/memory/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/fast-backend/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/scheduling/*.cc")
-
-list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*BootStrapnet\\.cc")
-list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*SimAiFlowModelRdma\\.cc")
-list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*PhyMultiThread\\.cc")
-
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
 build_lib(
   LIBNAME applications
   SOURCE_FILES
@@ -43,7 +27,6 @@ build_lib(
     model/udp-trace-client.cc
     model/rdma-client.cc
     model/simple-seq-ts-header.cc
-    ${ASTRA_SIM_SOURCE_FILES}
   HEADER_FILES
     helper/bulk-send-helper.h
     helper/on-off-helper.h
@@ -71,7 +54,6 @@ build_lib(
     model/udp-trace-client.h
     model/rdma-client.h
     model/simple-seq-ts-header.h
-    # ${ASTRA_SIM_HEADER_FILES}
   LIBRARIES_TO_LINK ${libinternet}
                     ${libstats}
   TEST_SOURCES
