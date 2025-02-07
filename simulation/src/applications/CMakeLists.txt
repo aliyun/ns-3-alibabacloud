@@ -12,7 +12,7 @@ list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*SimAiFlowModelRdma\\.cc")
 list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*PhyMultiThread\\.cc")
 
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories($<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
 build_lib(
   LIBNAME applications
