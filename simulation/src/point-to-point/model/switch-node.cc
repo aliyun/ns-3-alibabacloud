@@ -12,6 +12,7 @@
 #include "ns3/int-header.h"
 #include "ns3/simulator.h"
 #include <cmath>
+#include <unordered_set>
 
 namespace ns3 {
 
@@ -60,6 +61,7 @@ SwitchNode::SwitchNode(){
 		m_u[i] = 0;
 }
 
+std::unordered_set<uint64_t>  printedFlows;
 int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 	// look up entries
 	auto entry = m_rtTable.find(ch.dip);
@@ -78,6 +80,9 @@ int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 	} buf;
 	buf.u32[0] = ch.sip;
 	buf.u32[1] = ch.dip;
+	uint32_t srcIp = ch.sip;
+	uint32_t dstIp = ch.dip;
+	uint64_t flowId = ((uint64_t)srcIp << 32) | dstIp;
 	if (ch.l3Prot == 0x6)
 		buf.u32[2] = ch.tcp.sport | ((uint32_t)ch.tcp.dport << 16);
 	else if (ch.l3Prot == 0x11)
@@ -86,6 +91,10 @@ int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 		buf.u32[2] = ch.ack.sport | ((uint32_t)ch.ack.dport << 16);
 
 	uint32_t idx = EcmpHash(buf.u8, 12, m_ecmpSeed) % nexthops.size();
+	if (nexthops.size() > 0 && printedFlows.find(flowId) == printedFlows.end()) {
+	    std::cout << "src IP: "<< ((srcIp >> 24) & 0xFF) << "."   << ((srcIp >> 16) & 0xFF) << "."   << ((srcIp >> 8) & 0xFF) << "."    << (srcIp & 0xFF)<<">"<<"Destination IP: "<< ((dstIp >> 24) & 0xFF) << "."   << ((dstIp >> 16) & 0xFF) << "."   << ((dstIp >> 8) & 0xFF) << "."    << (dstIp & 0xFF)<<" in switch: "<<m_id<<" ECMP(header): "<<idx<< " selected interface: " << nexthops[idx]<<std::endl;
+		  printedFlows.insert(flowId);  //记录该流已经打印
+	}
 	return nexthops[idx];
 }
 
