@@ -8,7 +8,8 @@ PFC_OUTPUT_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/pfc.txt
 
 # MONITOR SETTINGS
 QLEN_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/qlen.txt
-BW_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/bw.txt
+TX_BW_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/tx_bw.txt
+RX_BW_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/rx_bw.txt
 RATE_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/rate.txt
 CNP_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/cnp.txt
 MON_START 2000001
@@ -41,6 +42,7 @@ KMIN_MAP 6 25000000000 100 50000000000 200 100000000000 400 200000000000 300 400
 PMAX_MAP 6 25000000000 0.2 50000000000 0.2 100000000000 0.2 200000000000 0.8 400000000000 0.2 1600000000000 0.2
 
 BUFFER_SIZE 32
+SWITCH_FORWARD_DELAY 1.5
 
 # NS3 SETTINGS
 ns3::QbbNetDevice::QcnEnabled true

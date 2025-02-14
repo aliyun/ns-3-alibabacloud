@@ -642,6 +642,7 @@ void QbbNetDevice::Receive(Ptr<Packet> packet) {
       if (ch.l3Prot == 0xFC) {
       }
       int ret = m_rdmaReceiveCb(packet, ch);
+      m_rdmaUpdateRxBytes(m_ifIndex, packet->GetSize());
       // TODO we may based on the ret do something
     }
   }

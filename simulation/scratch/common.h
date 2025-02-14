@@ -81,7 +81,8 @@ uint32_t qlen_mon_interval = 10000; // us, queue length monitor interval
 uint64_t mon_start = 0, mon_end = 2100000000;
 
 string qlen_mon_file;
-string bw_mon_file;
+string tx_bw_mon_file;
+string rx_bw_mon_file; // only for host
 string rate_mon_file;
 string cnp_mon_file;
 
@@ -137,7 +138,8 @@ void InitConfigMap() {
   config_map["MON_END"] = std::make_unique<ConfigVar<uint64_t>>(mon_end);
   config_map["QLEN_MON_FILE"] =
       std::make_unique<ConfigVar<string>>(qlen_mon_file);
-  config_map["BW_MON_FILE"] = std::make_unique<ConfigVar<string>>(bw_mon_file);
+  config_map["TX_BW_MON_FILE"] = std::make_unique<ConfigVar<string>>(tx_bw_mon_file);
+  config_map["RX_BW_MON_FILE"] = std::make_unique<ConfigVar<string>>(rx_bw_mon_file);
   config_map["RATE_MON_FILE"] =
       std::make_unique<ConfigVar<string>>(rate_mon_file);
   config_map["CNP_MON_FILE"] =
@@ -318,21 +320,22 @@ void monitor_qlen(FILE* qlen_output, NodeContainer *n){
     monitor_qlen_event = Simulator::Schedule(MicroSeconds(qlen_mon_interval), &monitor_qlen, qlen_output, n);
   }
 }
-void monitor_bw(FILE* bw_output, NodeContainer *n){
+void monitor_bw(FILE* tx_bw_output, FILE* rx_bw_output, NodeContainer *n){
 	for (uint32_t i = 0; i < n->GetN(); i++){
 		if(n->Get(i)->GetNodeType() == 1){ // is switch
 			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n->Get(i));
-			sw->PrintSwitchBw(bw_output, bw_mon_interval);
+			sw->PrintSwitchBw(tx_bw_output, bw_mon_interval);
 		}else if(n->Get(i)->GetNodeType() == 2){ // is nvswitch
 			Ptr<NVSwitchNode> sw = DynamicCast<NVSwitchNode>(n->Get(i));
-			sw->PrintSwitchBw(bw_output, bw_mon_interval);
+			sw->PrintSwitchBw(tx_bw_output, bw_mon_interval);
 		}else{ // is host
 			Ptr<Node> host = n->Get(i);
-			host->GetObject<RdmaDriver>()->m_rdma->PrintHostBW(bw_output, bw_mon_interval);
+			host->GetObject<RdmaDriver>()->m_rdma->PrintHostTxBW(tx_bw_output, bw_mon_interval);
+      host->GetObject<RdmaDriver>()->m_rdma->PrintHostRxBW(rx_bw_output, bw_mon_interval);
 		}
 	}
 	if (bw_mon_interval + Simulator::Now().GetMicroSeconds() < mon_end) {
-    monitor_bw_event = Simulator::Schedule(MicroSeconds(bw_mon_interval), &monitor_bw, bw_output, n);
+    monitor_bw_event = Simulator::Schedule(MicroSeconds(bw_mon_interval), &monitor_bw, tx_bw_output, rx_bw_output, n);
   }
 }
 void monitor_qp_rate(FILE* rate_output, NodeContainer *n){
@@ -366,11 +369,15 @@ void schedule_monitor(){
 	monitor_qlen_event = Simulator::Schedule(MicroSeconds(mon_start), &monitor_qlen, qlen_output, &n);
 
 	// bandwidth monitor
-	FILE* bw_output = fopen(bw_mon_file.c_str(), "w");
-  NS_ASSERT_MSG(bw_output != nullptr, "bw_output is nullptr");
-	fprintf(bw_output, "%s, %s, %s, %s\n", "time", "node_id", "port_id", "bandwidth");
-	fflush(bw_output);
-	monitor_bw_event = Simulator::Schedule(MicroSeconds(mon_start), &monitor_bw, bw_output, &n);
+	FILE* tx_bw_output = fopen(tx_bw_mon_file.c_str(), "w");
+  NS_ASSERT_MSG(tx_bw_output != nullptr, "tx_bw_output is nullptr");
+	fprintf(tx_bw_output, "%s, %s, %s, %s\n", "time", "node_id", "port_id", "bandwidth");
+	fflush(tx_bw_output);
+  FILE* rx_bw_output = fopen(rx_bw_mon_file.c_str(), "w");
+  NS_ASSERT_MSG(rx_bw_output != nullptr, "rx_bw_output is nullptr");
+	fprintf(rx_bw_output, "%s, %s, %s, %s\n", "time", "node_id", "port_id", "bandwidth");
+	fflush(rx_bw_output);
+	monitor_bw_event = Simulator::Schedule(MicroSeconds(mon_start), &monitor_bw, tx_bw_output, rx_bw_output, &n);
 
 	// qp send rate monitor
 	FILE* rate_output = fopen(rate_mon_file.c_str(), "w");
@@ -761,7 +768,8 @@ bool ReadConf(int argc, char *argv[]) {
     pfc_output_file = get_output_file_name(config_file, pfc_output_file);
     send_output_file = get_output_file_name(config_file, send_output_file);
     qlen_mon_file = get_output_file_name(config_file, qlen_mon_file);
-    bw_mon_file = get_output_file_name(config_file, bw_mon_file);
+    tx_bw_mon_file = get_output_file_name(config_file, tx_bw_mon_file);
+    rx_bw_mon_file = get_output_file_name(config_file, rx_bw_mon_file);
     rate_mon_file = get_output_file_name(config_file, rate_mon_file);
     cnp_mon_file = get_output_file_name(config_file, cnp_mon_file);
     return true;

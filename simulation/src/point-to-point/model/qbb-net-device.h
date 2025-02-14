@@ -248,6 +248,7 @@ class QbbNetDevice : public PointToPointNetDevice {
   typedef Callback<void, Ptr<RdmaQueuePair>, Ptr<Packet>, Time> RdmaPktSent;
   RdmaPktSent m_rdmaPktSent;
   Callback<void, uint32_t, uint64_t> m_rdmaUpdateTxBytes;
+  Callback<void, uint32_t, uint64_t> m_rdmaUpdateRxBytes;
 
   Ptr<RdmaEgressQueue> GetRdmaQueue();
   void TakeDown(); // take down this device

@@ -153,10 +153,14 @@ void RdmaHw::Setup(
     MessageCompleteCallback message_cb) {
   tx_bytes.resize(m_nic.size());
   last_tx_bytes.resize(m_nic.size());
+  rx_bytes.resize(m_nic.size());
+  last_rx_bytes.resize(m_nic.size());
   m_nic_peripTable.resize(m_nic.size());
   for (uint32_t i = 0; i < m_nic.size(); i++) {
     tx_bytes[i] = 0;
     last_tx_bytes[i] = 0;
+    rx_bytes[i] = 0;
+    last_rx_bytes[i] = 0;
     Ptr<QbbNetDevice> dev = m_nic[i].dev;
     if (dev == NULL)
       continue;
@@ -168,6 +172,7 @@ void RdmaHw::Setup(
     dev->m_rdmaLinkDownCb = MakeCallback(&RdmaHw::SetLinkDown, this);
     dev->m_rdmaPktSent = MakeCallback(&RdmaHw::PktSent, this);
     dev->m_rdmaUpdateTxBytes = MakeCallback(&RdmaHw::UpdateTxBytes, this);
+    dev->m_rdmaUpdateRxBytes = MakeCallback(&RdmaHw::UpdateRxBytes, this);
     // config NIC
     dev->m_rdmaEQ->m_rdmaGetNxtPkt = MakeCallback(&RdmaHw::GetNxtPacket, this);
   }
@@ -856,10 +861,16 @@ void RdmaHw::UpdateTxBytes(uint32_t port_id, uint64_t bytes) {
   tx_bytes[port_id] += bytes;
 }
 /**
+ * when nic receive a packet, update the bytes it has sent
+ */
+void RdmaHw::UpdateRxBytes(uint32_t port_id, uint64_t bytes) {
+  rx_bytes[port_id] += bytes;
+}
+/**
  * output format:
  * time, host_id, port_id, bandwidth
  */
-void RdmaHw::PrintHostBW(FILE* bw_output, uint32_t bw_mon_interval) {
+void RdmaHw::PrintHostTxBW(FILE* bw_output, uint32_t bw_mon_interval) {
   for (int i = 0; i < m_nic.size(); ++i) {
     if (tx_bytes[i] == last_tx_bytes[i]) {
       continue;
@@ -876,6 +887,29 @@ void RdmaHw::PrintHostBW(FILE* bw_output, uint32_t bw_mon_interval) {
         bw);
     fflush(bw_output);
     last_tx_bytes[i] = tx_bytes[i];
+  }
+}
+/**
+ * output format:
+ * time, host_id, port_id, bandwidth
+ */
+void RdmaHw::PrintHostRxBW(FILE* bw_output, uint32_t bw_mon_interval) {
+  for (int i = 0; i < m_nic.size(); ++i) {
+    if (rx_bytes[i] == last_rx_bytes[i]) {
+      continue;
+    }
+    double bw =
+        (rx_bytes[i] - last_rx_bytes[i]) * 8 * 1e6 / (bw_mon_interval); // bit/s
+    bw = bw * 1.0 / 1e9; // Gbps
+    fprintf(
+        bw_output,
+        "%lu, %u, %u, %f\n",
+        Simulator::Now().GetTimeStep(),
+        m_node->GetId(),
+        i,
+        bw);
+    fflush(bw_output);
+    last_rx_bytes[i] = rx_bytes[i];
   }
 }
 /**

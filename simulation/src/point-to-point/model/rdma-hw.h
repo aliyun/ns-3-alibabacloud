@@ -80,8 +80,12 @@ class RdmaHw : public Object {
       last_qp_cnp; // last sampling value key of qp ---> received cnp number
   std::unordered_map<uint64_t, uint64_t>
       last_qp_rate; // last sampling value key of qp ---> sending rate
+  std::vector<uint64_t> rx_bytes; // <port_id, rx_bytes>
+  std::vector<uint64_t> last_rx_bytes; // last sampling value
   void UpdateTxBytes(uint32_t port_id, uint64_t bytes);
-  void PrintHostBW(FILE* bw_output, uint32_t bw_mon_interval);
+  void UpdateRxBytes(uint32_t port_id, uint64_t bytes);
+  void PrintHostTxBW(FILE* bw_output, uint32_t bw_mon_interval);
+  void PrintHostRxBW(FILE* bw_output, uint32_t bw_mon_interval);
   void PrintQPRate(FILE* rate_output);
   void PrintQPCnpNumber(FILE* cnp_output);
 
