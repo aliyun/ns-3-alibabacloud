@@ -34,6 +34,7 @@ protected:
 	uint64_t m_maxRtt;
 
 	uint32_t m_ackHighPrio; // set high priority for ACK/NACK
+	double m_forwardDelay; // forwarding delay in us
 
 private:
 	int GetOutDev(Ptr<const Packet>, CustomHeader &ch);

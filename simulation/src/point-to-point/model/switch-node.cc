@@ -46,6 +46,11 @@ TypeId SwitchNode::GetTypeId (void)
 			UintegerValue(9000),
 			MakeUintegerAccessor(&SwitchNode::m_maxRtt),
 			MakeUintegerChecker<uint32_t>())
+	.AddAttribute("ForwardDelay",
+			"forwarding delay of the switch (us)",
+			DoubleValue(0.0),
+			MakeDoubleAccessor(&SwitchNode::m_forwardDelay),
+			MakeDoubleChecker<double>())
   ;
   return tid;
 }
@@ -202,7 +207,7 @@ void SwitchNode::ClearTable(){
 
 // This function can only be called in switch mode
 bool SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader &ch){
-	SendToDev(packet, ch);
+	Simulator::Schedule(MicroSeconds(m_forwardDelay), &SwitchNode::SendToDev, this, packet, ch);
 	return true;
 }
 

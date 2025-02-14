@@ -73,6 +73,7 @@ uint32_t ack_high_prio = 0;
 vector<uint64_t> link_down; // link down time, link down A, link down B
 uint32_t enable_trace = 1;
 uint32_t buffer_size = 16; // MB
+double sw_forward_delay = 0.0; //switch forward delay in us
 
 uint32_t qp_mon_interval = 100; // us, qp_cnp_interval and qp_rate_interval
 uint32_t bw_mon_interval = 10000; // us, bandwidth monitor interval
@@ -124,6 +125,8 @@ void InitConfigMap() {
       std::make_unique<ConfigVar<uint32_t>>(enable_trace);
   config_map["BUFFER_SIZE"] =
       std::make_unique<ConfigVar<uint32_t>>(buffer_size);
+  config_map["SWITCH_FORWARD_DELAY"] =
+      std::make_unique<ConfigVar<double>>(sw_forward_delay);
   config_map["QP_MON_INTERVAL"] =
       std::make_unique<ConfigVar<uint32_t>>(qp_mon_interval);
   config_map["BW_MON_INTERVAL"] =
@@ -828,6 +831,7 @@ void SetupNetwork(
 			Ptr<SwitchNode> sw = CreateObject<SwitchNode>();
 			n.Add(sw);
 			sw->SetAttribute("EcnEnabled", BooleanValue(get_config_value_ns3<bool>("ns3::QbbNetDevice::QcnEnabled")));
+      sw->SetAttribute("ForwardDelay", DoubleValue(sw_forward_delay));
 		}else if(node_type[i] == 2){
 			Ptr<NVSwitchNode> sw = CreateObject<NVSwitchNode>();
 			n.Add(sw);
