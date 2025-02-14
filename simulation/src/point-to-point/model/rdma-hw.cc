@@ -156,6 +156,7 @@ void RdmaHw::Setup(
   rx_bytes.resize(m_nic.size());
   last_rx_bytes.resize(m_nic.size());
   m_nic_peripTable.resize(m_nic.size());
+  m_lastRouteIdx = 0;
   for (uint32_t i = 0; i < m_nic.size(); i++) {
     tx_bytes[i] = 0;
     last_tx_bytes[i] = 0;
@@ -200,7 +201,22 @@ uint32_t RdmaHw::GetNicIdxOfQp(Ptr<RdmaQueuePair> qp) {
   } else { // src and dst don't in the same server, communicate through swicth
     auto& v = m_rtTable[qp->dip.Get()];
     if (v.size() > 0) {
-      return v[qp->GetHash() % v.size()];
+      #ifdef NS3_MTP
+        MtpInterface::explicitCriticalSection cs;
+      #endif
+      uint32_t dev_idx;
+      if (m_qp2devIdx.find(qp) != m_qp2devIdx.end()){
+        dev_idx = m_qp2devIdx[qp];
+      } else {
+        uint32_t route_idx = (m_lastRouteIdx + 1) % v.size();
+        m_qp2devIdx[qp] = v[route_idx];
+        m_lastRouteIdx = route_idx;
+        dev_idx = m_qp2devIdx[qp];
+      }
+      #ifdef NS3_MTP
+	      cs.ExitSection();
+	    #endif
+      return dev_idx;
     } else {
       NS_ASSERT_MSG(false, "We assume at least one NIC is alive");
     }
@@ -444,7 +460,7 @@ void RdmaHw::SendComplete(Ptr<RdmaQueuePair> qp) {
   m_sendCompleteCallback(qp);
 }
 
-int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader& ch) {
+int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx) {
   uint8_t ecnbits = ch.GetIpv4EcnBits();
 
   uint32_t payload_size = p->GetSize() - ch.GetSerializedSize();
@@ -472,7 +488,8 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader& ch) {
       } else {
         uint64_t key = 0;
         if (m_nic_coalesce_method == NicCoalesceMethod::PER_IP) {
-          key = GetNicIdxOfRxQp(rxQp); // each nic has a timer
+          // key = GetNicIdxOfRxQp(rxQp); // each nic has a timer
+          key = devIdx;
         } else if (m_nic_coalesce_method == NicCoalesceMethod::PER_QP) {
           key = GetQpKey(
               ch.sip, ch.udp.sport, ch.udp.pg); // each rxqp has a timer
@@ -510,7 +527,8 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader& ch) {
     uint32_t dip = ch.dip;
     uint32_t did = (dip >> 8) & 0xffff;
     // send
-    uint32_t nic_idx = GetNicIdxOfRxQp(rxQp);
+    // uint32_t nic_idx = GetNicIdxOfRxQp(rxQp);
+    uint32_t nic_idx = devIdx;
     m_nic[nic_idx].dev->RdmaEnqueueHighPrioQ(newp);
     // 发送给目标 NVSwitch 的报文
     if (did == m_node->GetId() && m_node->GetNodeType() == 2 && ch.m_tos == 4)
@@ -521,7 +539,7 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader& ch) {
   return 0;
 }
 
-int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader& ch) {
+int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx) {
   // QCN on NIC
   // This is a Congestion signal
   // Then, extract data from the congestion packet.
@@ -541,8 +559,8 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader& ch) {
   if (qp == NULL)
     std::cout << "ERROR: QCN NIC cannot find the flow\n";
   // get nic
-  uint32_t nic_idx = GetNicIdxOfQp(qp);
-  Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
+  // uint32_t nic_idx = GetNicIdxOfQp(qp);
+  Ptr<QbbNetDevice> dev = m_nic[devIdx].dev;
 
   if (qp->m_rate == 0) // lazy initialization
   {
@@ -551,7 +569,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader& ch) {
   return 0;
 }
 
-int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader& ch) {
+int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx) {
   uint16_t qIndex = ch.ack.pg;
   uint16_t port = ch.ack.dport;
   uint64_t seq = ch.ack.seq;
@@ -563,8 +581,8 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader& ch) {
     return 0;
   }
 
-  uint32_t nic_idx = GetNicIdxOfQp(qp);
-  Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
+  // uint32_t nic_idx = GetNicIdxOfQp(qp);
+  Ptr<QbbNetDevice> dev = m_nic[devIdx].dev;
   if (m_ack_interval == 0)
     std::cout << "ERROR: shouldn't receive ack\n";
   else {
@@ -606,15 +624,15 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader& ch) {
   return 0;
 }
 
-int RdmaHw::Receive(Ptr<Packet> p, CustomHeader& ch) {
+int RdmaHw::Receive(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx) {
   if (ch.l3Prot == 0x11) { // UDP
-    ReceiveUdp(p, ch);
+    ReceiveUdp(p, ch, devIdx);
   } else if (ch.l3Prot == 0xFF) { // CNP
-    ReceiveCnp(p, ch);
+    ReceiveCnp(p, ch, devIdx);
   } else if (ch.l3Prot == 0xFD) { // NACK
-    ReceiveAck(p, ch);
+    ReceiveAck(p, ch, devIdx);
   } else if (ch.l3Prot == 0xFC) { // ACK
-    ReceiveAck(p, ch);
+    ReceiveAck(p, ch, devIdx);
   }
   return 0;
 }

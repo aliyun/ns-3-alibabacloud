@@ -61,6 +61,10 @@ class RdmaHw : public Object {
   uint32_t nvls_enable;
   std::set<uint32_t> nvswitch_set;
 
+  // when qp can choose more than one nics, using round-robin to make qp distribute on each nic fairly
+  uint32_t m_lastRouteIdx;
+  std::map<Ptr<RdmaQueuePair>, uint32_t> m_qp2devIdx;
+
   // qp complete callback
   typedef Callback<void, Ptr<RdmaQueuePair>> QpCompleteCallback;
   QpCompleteCallback m_qpCompleteCallback;
@@ -138,12 +142,12 @@ class RdmaHw : public Object {
       Ptr<RdmaRxQueuePair> q); // get the NIC index of the rxQp
   void DeleteRxQp(uint32_t dip, uint16_t pg, uint16_t dport);
 
-  int ReceiveUdp(Ptr<Packet> p, CustomHeader& ch);
-  int ReceiveCnp(Ptr<Packet> p, CustomHeader& ch);
-  int ReceiveAck(Ptr<Packet> p, CustomHeader& ch); // handle both ACK and NACK
+  int ReceiveUdp(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx);
+  int ReceiveCnp(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx);
+  int ReceiveAck(Ptr<Packet> p, CustomHeader& ch, uint32_t devIdx); // handle both ACK and NACK
   int Receive(
       Ptr<Packet> p,
-      CustomHeader& ch); // callback function that the QbbNetDevice should use
+      CustomHeader& ch, uint32_t devIdx); // callback function that the QbbNetDevice should use
                          // when receive packets. Only NIC can call this
                          // function. And do not call this upon PFC
 
