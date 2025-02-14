@@ -25,6 +25,9 @@
 using namespace std;
 using namespace ns3;
 
+const bool SPLIT_DATA_ON_QPS = true;
+const int QPS_PER_CONNECTION = 2;
+
 extern uint32_t node_num, switch_num, link_num, trace_num, nvswitch_num,
     gpus_per_server;
 
@@ -34,22 +37,23 @@ extern std::unordered_map<uint32_t, unordered_map<uint32_t, uint16_t>>
 extern std::ifstream flowf;
 extern FlowInput flow_input;
 
-uint32_t flow_num_finished = 0;
+uint32_t msg_num_finished = 0;
+uint32_t total_msg_num = 0;
 std::unordered_map<std::string, ApplicationContainer> apps;
 
-#define MAX_QPS 2
 inline std::string getHashKey(uint32_t src, uint32_t dst, uint32_t pg, uint32_t dport){
     return std::to_string(src) + '_' + std::to_string(dst) + '_' + std::to_string(pg) + '_' + std::to_string(dport);
 }
 
-Ptr<RdmaClient> getClient(uint32_t src, uint32_t dst, uint32_t pg, uint32_t dport) {
+std::vector<Ptr<RdmaClient>> getClients(uint32_t src, uint32_t dst, uint32_t pg, uint32_t dport) {
+  std::vector<Ptr<RdmaClient>> clients;
   std::string hashKey = getHashKey(src, dst, pg, dport);  
   #ifdef NS3_MTP
-  MtpInterface::explicitCriticalSection cs;
+    MtpInterface::explicitCriticalSection cs;
   #endif
   if (apps[hashKey].GetN() == 0) {
     // create apps
-    for (int i = 0; i < MAX_QPS; i++) {
+    for (int i = 0; i < QPS_PER_CONNECTION; i++) {
       uint32_t port =
           portNumber[flow_input.src][flow_input.dst]++; // get a new port number
       RdmaClientHelper clientHelper(
@@ -72,13 +76,14 @@ Ptr<RdmaClient> getClient(uint32_t src, uint32_t dst, uint32_t pg, uint32_t dpor
     }
     apps[hashKey].Start(Time(0));
   }
-  // choose a random qp
-  int idx = std::rand() % MAX_QPS;
-  Ptr<RdmaClient> app = DynamicCast<RdmaClient>(apps[hashKey].Get(idx));
+  for (int i = 0; i < QPS_PER_CONNECTION; i++) {
+    Ptr<RdmaClient> qp = DynamicCast<RdmaClient>(apps[hashKey].Get(i));
+    clients.push_back(qp);
+  }
   #ifdef NS3_MTP
-  cs.ExitSection();
+    cs.ExitSection();
   #endif
-  return app;
+  return clients;
 }
 
 void PushMessagetoClient(Ptr<RdmaClient> client, uint64_t size) {
@@ -100,16 +105,30 @@ void ScheduleFlowInputs() {
     //FlowInput 
     //src, dst, pg, dport;
     //maxPacketCount;
-    Ptr<RdmaClient> client = getClient(flow_input.src, flow_input.dst, flow_input.pg, flow_input.dport);
-    std::cout
-        << "注册流" << flow_input.idx << " src: " << flow_input.src
-        << " dst: " << flow_input.dst << " pg: " << flow_input.pg
-        << " sport: " << client->GetSourcePort()
-        << " dport: " << flow_input.dport << " maxPacketCount: "
-        << flow_input.maxPacketCount // 虽然叫maxPacketCount，但是其实是字节数
-        << " start_time: " << flow_input.start_time << std::endl;
-    Simulator::Schedule(NanoSeconds(1), PushMessagetoClient, client, flow_input.maxPacketCount);
+    std::vector<Ptr<RdmaClient>> clients = getClients(flow_input.src, flow_input.dst, flow_input.pg, flow_input.dport);
 
+    if (SPLIT_DATA_ON_QPS == false) {
+      // choose a random qp
+      int qp_index = std::rand() % QPS_PER_CONNECTION;
+      std::cout
+          << "注册流" << flow_input.idx << " src: " << flow_input.src
+          << " dst: " << flow_input.dst << " pg: " << flow_input.pg
+          << " sport: " << clients[qp_index]->GetSourcePort()
+          << " dport: " << flow_input.dport << " maxPacketCount: "
+          << flow_input.maxPacketCount // 虽然叫maxPacketCount，但是其实是字节数
+          << " qp_index: " << qp_index
+          << " start_time: " << flow_input.start_time << std::endl;
+      total_msg_num++;
+      Simulator::Schedule(NanoSeconds(1), PushMessagetoClient, clients[qp_index], flow_input.maxPacketCount);
+    } else if (SPLIT_DATA_ON_QPS == true) {
+      uint64_t base_size = flow_input.maxPacketCount / QPS_PER_CONNECTION;
+      uint64_t last_size = base_size + flow_input.maxPacketCount % QPS_PER_CONNECTION;
+      for (int i = 0; i < QPS_PER_CONNECTION; i++) {
+        uint64_t size = (i == QPS_PER_CONNECTION - 1)? last_size : base_size;
+        total_msg_num++;
+        Simulator::Schedule(NanoSeconds(1), PushMessagetoClient, clients[i], size);
+      }
+    }
     // get the next flow input
     flow_input.idx++;
     ReadFlowInput();
@@ -183,8 +202,8 @@ void message_finish_reuse(FILE* fout, Ptr<RdmaQueuePair> q, uint64_t msgSize){
   // Ptr<Node> dstNode = n.Get(did);
   // Ptr<RdmaDriver> rdma = dstNode->GetObject<RdmaDriver>();
   // rdma->m_rdma->DeleteRxQp(q->sip.Get(), q->m_pg, q->sport);
-  flow_num_finished++;
-  if(flow_num_finished == flow_num){
+  msg_num_finished++;
+  if(msg_num_finished == total_msg_num){
     Finish();
     cancel_monitor();
   }
