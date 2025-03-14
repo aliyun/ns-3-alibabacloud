@@ -756,6 +756,7 @@ bool ReadConf(int argc, char *argv[]) {
     trace_output_file = get_output_file_name(config_file, trace_output_file);
     fct_output_file = get_output_file_name(config_file, fct_output_file);
     pfc_output_file = get_output_file_name(config_file, pfc_output_file);
+    send_output_file = get_output_file_name(config_file, send_output_file);
     qlen_mon_file = get_output_file_name(config_file, qlen_mon_file);
     bw_mon_file = get_output_file_name(config_file, bw_mon_file);
     rate_mon_file = get_output_file_name(config_file, rate_mon_file);
