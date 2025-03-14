@@ -5,6 +5,7 @@ FLOW_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/flows/8to1.txt
 # OUTPUT FILE PATH
 FCT_OUTPUT_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/fct.txt
 PFC_OUTPUT_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/pfc.txt
+SEND_OUTPUT_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/send.txt
 
 # MONITOR SETTINGS
 QLEN_MON_FILE /ns-3-alibabacloud/simulation/examples/rdma-test/outputs/qlen.txt

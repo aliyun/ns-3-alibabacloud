@@ -5,6 +5,8 @@
 .waf-1.7.11-*/
 .lock-waf_linux2_build
 simulation/build/ns3/*
+simulation/build/include/*
+simulation/build/src/*
 simulation/build/.wafpickle-*
 simulation/build/.old_srcdir
 simulation/build/scratch/*
@@ -25,6 +27,8 @@ simulation/.waf*-*
 simulation/cmake-cache/*
 simulation/cmake-cache/*
 simulation/.lock-ns3_linux_build
+simulation/.vscode
+simulation/.vscode/*
 
 analysis/*
 
