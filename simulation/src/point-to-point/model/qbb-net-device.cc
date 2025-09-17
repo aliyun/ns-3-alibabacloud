@@ -460,9 +460,16 @@ namespace ns3 {
 		m_paused[qIndex] = false;
 		NS_LOG_INFO("Node " << m_node->GetId() << " dev " << m_ifIndex << " queue " << qIndex <<
 			" resumed at " << Simulator::Now().GetSeconds());
-		Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
-		if(lastQp->nvls_enable == 1 && m_node->GetNodeType() == 2) SwitchAsHostSend(); 
-		else DequeueAndTransmit();
+		if (m_node->GetNodeType() == 2) {
+            Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
+            if(lastQp->nvls_enable == 1) {
+				SwitchAsHostSend();
+			} else {
+				DequeueAndTransmit();
+			}
+        } else {
+			DequeueAndTransmit();
+		}
 	}
 
 	void
