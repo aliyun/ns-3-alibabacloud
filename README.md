@@ -8,15 +8,6 @@ We have released a new dev branch [**dev/qp**](https://github.com/aliyun/ns-3-al
 3. **Optimized Scheduling Logic**: Adheres to the Max-Min principle, resolving issues of underutilization and unfairness in network resource allocation.
 4. **Decoupling of the CC Module**: For improved modularity and efficiency.
 
-Welcome to join the SimAI community chat groups, with the DingTalk group on the left and the WeChat group on the right.
-
-<div style="display: flex; justify-content: flex-start; align-items: center; gap: 20px; margin-left: 20px;">
-    <img src="./docs/images/simai_dingtalk.jpg" alt="SimAI DingTalk" style="width: 300px; height: auto;">
-    <img src="./docs/images/simai_wechat.jpg" alt="SimAI WeChat" style="width: 300px; height: auto;">
-</div>
-
-<br/>
-
 ## Key differences vs upstream ns-3 (focus: `simulation/src/point-to-point/model/`)
 
 Compared to the original [ns-3](https://www.nsnam.org/), this repo extends the point-to-point module with a **datacenter / RDMA-oriented** end-to-end model. The main additions live in `simulation/src/point-to-point/model/` and include:
@@ -26,7 +17,7 @@ Compared to the original [ns-3](https://www.nsnam.org/), this repo extends the p
 - **RDMA host stack (QP-level)**: QP/RxQP modeling, window/on-the-fly control, ACK/NACK handling, and multiple NIC congestion-control (CC) modes (e.g., DCQCN/HPCC/TIMELY/DCTCP/HPCC-PINT).
 - **Switch and NVSwitch modeling**: ECMP forwarding, buffer/MMU admission control, PFC trigger/resume logic, and (optional) INT/PINT-style metadata injection for HPCC(-PINT).
 
-### Module map (what each file/class does)
+## Module map (what each file/class does)
 
 - **`qbb-net-device.{h,cc}` (`QbbNetDevice`, `RdmaEgressQueue`)**
   - **What it does**: A QBB-capable net device on top of `PointToPointNetDevice` with 8 priorities. It intercepts receive to honor PFC, schedules transmissions from either:
@@ -87,7 +78,7 @@ Compared to the original [ns-3](https://www.nsnam.org/), this repo extends the p
   - **`pint.{h,cc}`**: PINT encode/decode utilities.
   - **`trace-format.h`**: binary trace record structure `TraceFormat` used by offline analyzers.
 
-### Where to implement new features (quick guide)
+## Where to implement new features (quick guide)
 
 - **Add a new host-side congestion control (CC)**
   - **Primary**: `rdma-hw.{h,cc}` (algorithm + dispatch by `CcMode`)
@@ -103,3 +94,16 @@ Compared to the original [ns-3](https://www.nsnam.org/), this repo extends the p
   - **Primary**: add a new `*Header` in `model/` (follow `CnHeader` / `PauseHeader`)
   - **Parsing/dispatch**: usually in `QbbNetDevice::Receive()` (device-level) or `RdmaHw::Receive()` (host stack)
   - **Note**: if you need it parsed by `CustomHeader`, you’ll also need to extend the `custom-header` implementation (outside this folder).
+
+# Contact us
+
+Please email Gang Lu (yunding.lg@alibaba-inc.com), Feiyang Xue (xuefeiyang.xfy@alibaba-inc.com) or Qingxu Li (qingxu.lqx@alibaba-inc.com) if you have any questions.
+
+Welcome to join the SimAI community chat groups, with the DingTalk group on the left and the WeChat group on the right.
+
+<div style="display: flex; justify-content: flex-start; align-items: center; gap: 20px; margin-left: 20px;">
+    <img src="./docs/images/simai_dingtalk.jpg" alt="SimAI DingTalk" style="width: 300px; height: auto;">
+    <img src="./docs/images/simai_wechat.jpg" alt="SimAI WeChat" style="width: 300px; height: auto;">
+</div>
+
+<br/>
