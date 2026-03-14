@@ -1,0 +1,3 @@
+[submodule "ns-3-alibabacloud"]
+	url = https://github.com/STyGIANet/ns-3-alibabacloud.git
+	branch = ns-3-alibaba-branch
