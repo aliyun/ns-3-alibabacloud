@@ -403,6 +403,9 @@ int RdmaHw::SendPacketComplete(Ptr<Packet> p, CustomHeader &ch)
 	uint32_t nic_idx = GetNicIdxOfQp(qp);
 	Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
 	SendComplete(qp);
+	// FIX(plan06): C4 returns explicitly after SendComplete to avoid undefined
+	// behavior at the stack-trace exit path / C4 在 gdb 栈显示的退出路径上显式返回，避免非 void 函数未返回的未定义行为。
+	return 0;
 }
 
 void RdmaHw::SendComplete(Ptr<RdmaQueuePair> qp)
