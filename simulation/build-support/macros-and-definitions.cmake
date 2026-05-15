@@ -359,6 +359,8 @@ macro(process_options)
       endif()
     else()
       add_compile_options(-Wall) # -Wextra
+      add_compile_options(-include cstdint) # GCC13 fix
+      add_compile_options(-Wno-error)
       if(${NS3_WARNINGS_AS_ERRORS})
         add_compile_options(-Werror -Wno-error=deprecated-declarations)
       endif()

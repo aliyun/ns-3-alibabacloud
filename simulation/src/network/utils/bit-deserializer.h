@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <deque>
+#include <cstdint>
 
 namespace ns3 {
 
