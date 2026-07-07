@@ -5,7 +5,8 @@ file(GLOB ASTRA_SIM_SOURCE_FILES
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/topology/*.cc"
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/memory/*.cc"
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/fast-backend/*.cc"
-	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/scheduling/*.cc")
+	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/scheduling/*.cc"
+	"${CMAKE_CURRENT_SOURCE_DIR}/SimCCL/mock/*.cc")
 
 list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*BootStrapnet\\.cc")
 list(FILTER ASTRA_SIM_SOURCE_FILES EXCLUDE  REGEX ".*SimAiFlowModelRdma\\.cc")
