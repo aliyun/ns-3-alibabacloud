@@ -1,4 +1,4 @@
-file(GLOB ASTRA_SIM_SOURCE_FILES 
+file(GLOB ASTRA_SIM_SOURCE_FILES CONFIGURE_DEPENDS 
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/*.cc"
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/workload/*.cc"
 	"${CMAKE_CURRENT_SOURCE_DIR}/astra-sim/system/collective/*.cc"
