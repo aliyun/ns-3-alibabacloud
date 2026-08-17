@@ -1,0 +1,23 @@
+outputFile chart.html
+printTrace 1
+printAccumulateFlow 0
+eventType 0 0 1 0
+
+group
+trPath /etc/astra-sim/simulation/llama_hpn7_mix.tr
+title tp2
+tp 4
+dp 1
+pp 1
+vpp 1
+dataRate 4000
+linkDelay 25
+sendLat 3000
+numLayer 4
+attnComp 275641
+mlpComp 440705
+switchNode 0
+switchNodePort 1
+switchNodePortNum 4
+actFlag 0
+nodeNum 4
