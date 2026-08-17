@@ -36,6 +36,16 @@ option(NS3_ENABLE_SUDO
        "Set executables ownership to root and enable the SUID flag" OFF
 )
 
+# generate stubs even in the case symlinks are supported
+option(NS3_EXPORT_HEADERS_AS_STUBS
+        "Generate stub headers instead of symlinks in build/include/ns3" OFF
+)
+
+# use relative paths for symlinks/stubs
+option(NS3_USE_RELATIVE_PATHS_SYMLINKS
+        "Use relative paths for symlinks/stubs" OFF
+)
+
 # Replace default CMake messages (logging) with custom colored messages as early
 # as possible
 include(${PROJECT_SOURCE_DIR}/build-support/3rd-party/colored-messages.cmake)
@@ -1387,35 +1397,45 @@ function(copy_headers_before_building_lib libname outputdir headers visibility)
       header_name ${CMAKE_CURRENT_SOURCE_DIR}/${header} NAME
     )
 
-    # If header already exists, skip symlinking/stub header creation
-    if(EXISTS ${outputdir}/${header_name})
-      continue()
+    if(NS3_USE_RELATIVE_PATHS_SYMLINKS)
+      file(RELATIVE_PATH header_path
+           "${outputdir}"
+           "${CMAKE_CURRENT_SOURCE_DIR}/${header}"
+      )
+      # Ensure forward slashes for the preprocessor include
+      file(TO_CMAKE_PATH "${header_path}" header_path)
+    else()
+      set(header_path "${CMAKE_CURRENT_SOURCE_DIR}/${header}")
     endif()
 
     # CMake 3.13 cannot create symlinks on Windows, so we use stub headers as a
     # fallback
-    if(WIN32 AND (${CMAKE_VERSION} VERSION_LESS "3.13.0"))
+    if(NS3_EXPORT_HEADERS_AS_STUBS OR
+      (WIN32 AND (${CMAKE_VERSION} VERSION_LESS "3.13.0")))
+      # If header already exists and is a symlink, remove it
+      if(IS_SYMLINK "${outputdir}/${header_name}")
+        file(REMOVE "${outputdir}/${header_name}")
+      endif()
       # Create a stub header in the output directory, including the real header
       # inside their respective module
-
-      file(WRITE ${outputdir}/${header_name}
-           "#include \"${CMAKE_CURRENT_SOURCE_DIR}/${header}\"\n"
-      )
+      file(GENERATE OUTPUT "${outputdir}/${header_name}" CONTENT "#include \"${header_path}\"\n")
     else()
       # Create a symlink in the output directory to the original header Calling
       # execute_process for each symlink is too slow too, so we create a batch
       # with all headers execute_process(COMMAND ${CMAKE_COMMAND} -E
       # create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/${header}
       # ${outputdir}/${header_name})
-      set(batch_symlinks
-          ${batch_symlinks}
-          COMMAND
-          ${CMAKE_COMMAND}
-          -E
-          create_symlink
-          ${CMAKE_CURRENT_SOURCE_DIR}/${header}
-          ${outputdir}/${header_name}
-      )
+      if(NOT IS_SYMLINK "${outputdir}/${header_name}")
+        set(batch_symlinks
+            ${batch_symlinks}
+            COMMAND
+            ${CMAKE_COMMAND}
+            -E
+            create_symlink
+            ${header_path}
+            ${outputdir}/${header_name}
+        )
+      endif()
     endif()
   endforeach()
 

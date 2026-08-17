@@ -21,6 +21,8 @@ endif()
 # ##############################################################################
 project(NS3 CXX)
 
+get_directory_property(IS_SUBPROJECT PARENT_DIRECTORY)
+
 file(STRINGS VERSION NS3_VER)
 
 # minimum compiler versions
@@ -102,14 +104,33 @@ set(NS3_DISABLED_MODULES ""
     CACHE STRING "List of modules to disable (e.g. lte;wimax;wave)"
 )
 
+#set(ASTRA_SIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../astra-sim-alibabacloud/astra-sim")
+#
+#file(GLOB_RECURSE astra_sim_files CONFIGURE_DEPENDS "${ASTRA_SIM_DIR}/*")
+#set(DIR_NAME "astra-sim")
+#foreach(file ${astra_sim_files})
+#  string(REPLACE "${ASTRA_SIM_DIR}/" "astra-sim/" relative_path ${file})
+#  get_filename_component(output_dir "${CMAKE_CURRENT_SOURCE_DIR}/src/applications/${relative_path}" DIRECTORY)
+#  file(MAKE_DIRECTORY ${output_dir})
+#  configure_file(${file} "${CMAKE_CURRENT_SOURCE_DIR}/src/applications/${relative_path}" COPYONLY)
+#endforeach()
+#
+#file(GLOB scratch_files
+#        CONFIGURE_DEPENDS
+#        ${ASTRA_SIM_DIR}/network_frontend/ns3/*)
+#foreach(file ${scratch_files})
+#  get_filename_component(filename ${file} NAME)
+#  configure_file(${file} ${CMAKE_CURRENT_SOURCE_DIR}/scratch/${filename} COPYONLY)
+#endforeach()
+
 # Include macros used below
 include(build-support/macros-and-definitions.cmake)
 
 # Scan module libraries
-subdirlist(libs_to_build ${CMAKE_SOURCE_DIR}/src)
+subdirlist(libs_to_build ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Scan contribution libraries
-subdirlist(contrib_libs_to_build ${CMAKE_SOURCE_DIR}/contrib)
+subdirlist(contrib_libs_to_build ${CMAKE_CURRENT_SOURCE_DIR}/contrib)
 
 # Before filtering, we need to load settings from .ns3rc
 parse_ns3rc(ns3rc_enabled_modules ns3rc_examples_enabled ns3rc_tests_enabled)
