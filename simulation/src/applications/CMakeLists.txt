@@ -43,7 +43,6 @@ build_lib(
     model/udp-server.cc
     model/udp-trace-client.cc
     model/rdma-client.cc
-    model/simple-seq-ts-header.cc
     ${ASTRA_SIM_SOURCE_FILES}
   HEADER_FILES
     helper/bulk-send-helper.h
@@ -71,10 +70,10 @@ build_lib(
     model/udp-server.h
     model/udp-trace-client.h
     model/rdma-client.h
-    model/simple-seq-ts-header.h
     # ${ASTRA_SIM_HEADER_FILES}
   LIBRARIES_TO_LINK ${libinternet}
                     ${libstats}
+                    ${libpoint-to-point}
   TEST_SOURCES
     test/three-gpp-http-client-server-test.cc
     test/bulk-send-application-test-suite.cc

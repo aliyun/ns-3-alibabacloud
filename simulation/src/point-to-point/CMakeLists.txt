@@ -38,6 +38,7 @@ build_lib(
     model/switch-mmu.cc
     model/nvswitch-node.cc
     model/point-to-point-remote-channel.cc
+    model/simple-seq-ts-header.cc
   HEADER_FILES
     ${mpi_headers}
     helper/point-to-point-helper.h
@@ -61,7 +62,10 @@ build_lib(
     model/trace-format.h
     model/nvswitch-node.h
     model/point-to-point-remote-channel.h
+    model/simple-seq-ts-header.h
   LIBRARIES_TO_LINK ${libnetwork}
                     ${mpi_libraries}
+                    ${libinternet}
+                    ${libmtp}
   TEST_SOURCES test/point-to-point-test.cc
 )
