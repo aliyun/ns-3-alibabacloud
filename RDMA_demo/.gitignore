@@ -1,0 +1,15 @@
+# ============================================================================
+# RDMA_demo 构建中间产物 / 运行时生成文件 —— 不纳入版本控制
+#   （源码文件 Makefile / rdma_write_demo.cc / README.md / include/ / nsibverbs/
+#     均不受下列规则影响，会正常纳入版本控制）
+# ============================================================================
+
+# 编译中间产物：object 文件目录，以及任何散落的 .o
+build/
+*.o
+
+# 最终生成的可执行二进制（前导 / 锚定到本目录，不会误伤 rdma_write_demo.cc）
+/rdma_write_demo
+
+# 运行时生成的输出文件（nsibverbs/command.cc 运行时会写出 pollTimeVector.txt）
+pollTimeVector.txt

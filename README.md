@@ -1,111 +1,185 @@
-<p align="left">English ｜ <a href="README_CN.md">中文</a></p>
+# CLEM ns-3 Network Backend
 
-# NS-3-ALIBABACLOUD
+This repository is the **network simulator** component of **CLEM** (Collective communication
+Library EMulator). It is maintained on the
+[`feat/ipc-middleware`](https://github.com/aliyun/ns-3-alibabacloud/tree/feat/ipc-middleware)
+branch. It provides an ns-3-based backend that emulates the point-to-point (P2P) communication of
+a Collective Communications Library (CCL), together with a **GPU-free** demonstration
+([`RDMA_demo/`](RDMA_demo/)) of how an application interacts with this backend.
 
-This repository contains an NS3-based network simulator that acts as a network backend for [SimAI](https://github.com/aliyun/SimAI).
+---
 
-We have released a new dev branch [**dev/qp**](https://github.com/aliyun/ns-3-alibabacloud/tree/dev/qp) featuring the following enhancements (From maintainer [**@MXtremist**](https://github.com/MXtremist)):
-1. **QP Logic Support**: Enables creation and destruction of QPs based on actual RDMA logic, allowing multiple messages to be carried by a pair of QPs.
-2. **NIC CC Configuration**: Supports perIP or perQP settings for enhanced flexibility.
-3. **Optimized Scheduling Logic**: Adheres to the Max-Min principle, resolving issues of underutilization and unfairness in network resource allocation.
-4. **Decoupling of the CC Module**: For improved modularity and efficiency.
+## 1. What this ns-3 version is for
 
-## Key differences vs upstream ns-3 (focus: `simulation/src/point-to-point/model/`)
+CLEM is a CCL emulator that runs a **vanilla CCL directly on GPU hardware**, while **intercepting
+the CCL's P2P communication primitives** and **redirecting them to a network simulator** that
+reproduces their behavior. This makes it possible to study large-scale collective communication
+under realistic, non-stationary network conditions without deploying a full physical cluster.
 
-Compared to the original [ns-3](https://www.nsnam.org/), this repo extends the point-to-point module with a **datacenter / RDMA-oriented** end-to-end model. The main additions live in `simulation/src/point-to-point/model/` and include:
+CLEM is built from three cooperating components:
 
-- **QBB/PFC + multi-priority queues**: 8 priority queues, PAUSE/RESUME (PFC-like) handling, and priority-aware scheduling on each port/NIC.
-- **ECN + CNP (QCN-style) feedback**: switch-side ECN marking based on queue occupancy and receiver-side ECN accounting; congestion feedback is carried via CNP packets.
-- **RDMA host stack (QP-level)**: QP/RxQP modeling, window/on-the-fly control, ACK/NACK handling, and multiple NIC congestion-control (CC) modes (e.g., DCQCN/HPCC/TIMELY/DCTCP/HPCC-PINT).
-- **Switch and NVSwitch modeling**: ECMP forwarding, buffer/MMU admission control, PFC trigger/resume logic, and (optional) INT/PINT-style metadata injection for HPCC(-PINT).
+- **Modified CCL (`nccl_hack_rdma`)** — hosts the **API Navigator**, which captures the CCL's
+  RDMA/P2P calls (e.g. `ibv_post_send`) and reroutes them to the simulator middleware instead of a
+  physical RNIC.
+- **This ns-3 backend (`simulator-network`)** — receives the redirected calls and **simulates the
+  behavior of those P2P primitives**: the actual data transfer, congestion control, and timing.
+- **Instrumented tests (`nccl-tests-modify`)** — drive the collective workloads and expose the
+  simulated network time back to the application.
 
-## Module map (what each file/class does)
+**This repository is the ns-3 backend — it exists precisely to simulate the intercepted P2P
+primitives on behalf of CLEM.**
 
-- **`qbb-net-device.{h,cc}` (`QbbNetDevice`, `RdmaEgressQueue`)**
-  - **What it does**: A QBB-capable net device on top of `PointToPointNetDevice` with 8 priorities. It intercepts receive to honor PFC, schedules transmissions from either:
-    - **host/NIC**: `RdmaEgressQueue` (high-priority ACK/NACK queue + round-robin across QPs), or
-    - **switch port**: `BEgressQueue` round-robin across priority queues.
-    It also supports an NVSwitch “switch acts as host” send path when NVLS is enabled.
-  - **Key attributes**: `QbbEnabled`, `QcnEnabled`, `DynamicThreshold`, `PauseTime`, `NVLS_enable`.
-  - **Key integration callbacks**: `m_rdmaReceiveCb` (deliver non-PFC packets to `RdmaHw`), `m_rdmaSentCb` (per-packet send completion), `m_rdmaPktSent` (update QP pacing/next-available), `m_rdmaLinkDownCb`.
-  - **Where to extend**:
-    - **Scheduling / priority rules**: `DequeueAndTransmit()` and `RdmaEgressQueue::GetNextQindex()`
-    - **PFC behavior**: `Receive()` and `SendPfc()`
+To let ns-3 understand and respond to IBV Verbs-style calls coming from the CCL, we extend ns-3
+with a set of custom classes:
 
-- **`qbb-channel.{h,cc}` / `qbb-remote-channel.{h,cc}`**
-  - **What it does**: point-to-point channel for `QbbNetDevice`; `QbbRemoteChannel` uses MPI (`MpiInterface::SendPacket`) for distributed simulations.
-  - **Where to extend**: link behavior/delivery path in `TransmitStart()`.
+- `IbvQP` — models Queue Pairs for reliable, connection-oriented communication.
+- `IbvCQ` — implements Completion Queues for asynchronous operation notification.
+- `IbvInterface` / `IbvInterfaceHelper` — provide the abstraction layer for virtualized NIC
+  functionality.
 
-- **`switch-node.{h,cc}` (`SwitchNode`)**
-  - **What it does**: switch pipeline (`nodeType = 1`): ECMP forwarding (5-tuple hash), admission control via MMU, PFC pause/resume generation, optional ECN marking, and INT/PINT injection on dequeue (used by HPCC / HPCC-PINT).
-  - **Key attributes**: `EcnEnabled`, `CcMode`, `AckHighPrio`, `MaxRtt`.
-  - **Where to extend**:
-    - **Forwarding / ECMP**: `GetOutDev()`, `EcmpHash()`, `AddTableEntry()`
-    - **ECN / PFC / INT-PINT injection**: `SwitchNotifyDequeue()`
+Together, these components allow ns-3 to parse, execute, and respond to IBV-style communication
+calls issued by upper-layer applications such as NCCL. For the detailed design rationale and class
+relationships, refer to the inline code comments and the material under [`docs/`](docs/).
 
-- **`switch-mmu.{h,cc}` (`SwitchMmu`)**
-  - **What it does**: switch buffer/MMU model: ingress/egress accounting, shared buffer & headroom, pause/resume decisions, ECN marking probability curve (`kmin/kmax/pmax`), and PFC threshold computation.
-  - **Key config APIs**: `ConfigBufferSize()`, `ConfigHdrm()`, `ConfigNPort()`, `ConfigEcn()`.
-  - **Where to extend**: implement new buffer management / PFC threshold formula / ECN curve here.
+---
 
-- **`nvswitch-node.{h,cc}` (`NVSwitchNode`)**
-  - **What it does**: NVSwitch node model (`nodeType = 2`) used for intra-server GPU communication (paired with the NVLS routing logic in `RdmaHw` / `QbbNetDevice`).
-  - **Where to extend**: NVSwitch forwarding/admission/monitoring (similar entry points to `SwitchNode`, but currently without ECN/INT injection).
+## 2. A GPU-free way in: `RDMA_demo`
 
-- **`rdma-hw.{h,cc}` (`RdmaHw`)**
-  - **What it does**: host RDMA core: QP create/delete, packet construction (PPP + IPv4 + UDP + SeqTs), ACK/NACK processing, CNP processing, per-QP CC algorithms, and routing to NIC (including NVSwitch routing tables).
-  - **Key attributes**: `CcMode`, `Mtu`, `MinRate`, `L2ChunkSize`, `L2AckInterval`, `L2BackToZero`, plus CC-specific knobs for DCQCN/TIMELY/DCTCP/HPCC/PINT (see `GetTypeId()`).
-  - **Protocol numbers used (IPv4 Protocol field)**:
-    - **UDP data**: `0x11`
-    - **CNP**: `0xFF`
-    - **PFC**: `0xFE`
-    - **ACK**: `0xFC`
-    - **NACK**: `0xFD`
-  - **Where to extend**:
-    - **Add a new CC algorithm**: add `HandleAckX/UpdateRateX` (and optionally CNP hooks) and dispatch by `m_cc_mode` in `ReceiveAck()`/`ReceiveCnp()`.
-    - **Add/modify routing (including NVSwitch/NVLS)**: `GetNicIdxOfQp()`, `GetNicIdxOfRxQp()`, `AddTableEntry()`, `RedistributeQp()`.
+The **full** CLEM pipeline requires the CCL process to run on **real GPUs**. To let users read,
+build, and understand CLEM's core **bidirectional interaction framework** even *without* a GPU (or a
+physical RNIC), this repository ships a self-contained teaching example under
+[`RDMA_demo/`](RDMA_demo/).
 
-- **`rdma-driver.{h,cc}` (`RdmaDriver`)**
-  - **What it does**: wiring layer between `Node`/NICs and `RdmaHw`: builds NIC/QP groups and exposes QP lifecycle traces (`QpComplete`, `SendComplete`).
-  - **Where to extend**: add higher-level observability or app-facing callbacks around QP lifecycle here.
+`RDMA_demo` is a minimal, **GPU-free** and **RNIC-free** two-process **RDMA WRITE** program. It
+**reuses exactly the same Verbs implementation as the real CLEM** (`nsibverbs`, copied verbatim
+from `nccl_hack_rdma/src/nsibverbs/`) but strips away the NCCL / CUDA / GPU dependencies. It
+illustrates the essential interaction loop: an application's IBV Verbs call is intercepted by
+`nsibverbs`, translated into a command, and pushed down to the ns-3 simulator through shared
+memory; once the simulator finishes emulating the transfer, the response / completion (CQE) is
+pushed back up to the application.
 
-- **`rdma-queue-pair.{h,cc}` (`RdmaQueuePair`, `RdmaRxQueuePair`, `RdmaQueuePairGroup`)**
-  - **What it does**: per-QP and per-RxQP state (window, rate, ACKed seq, plus per-CC algorithm state: DCQCN alpha/targetRate, HPCC hop state, TIMELY RTT tracking, DCTCP alpha/ecnCnt, HPCC-PINT state).
-  - **Where to extend**: if your new CC needs extra per-QP state, add it here.
+```
+   Application (the demo)               nsibverbs                       ns-3 simulator
+   ───────────────────────             ─────────                       ──────────────
+   ibv_open_device()     ─┐
+   ibv_alloc_pd()         │   intercepted & translated into an
+   ibv_reg_mr()           │   IbvCommand, then written into the
+   ibv_create_cq()        ├──────────►  boost::interprocess  ─────────►  consumes commands,
+   ibv_create_qp()        │             shared-memory queue              simulates the RDMA
+   ibv_modify_qp()        │             (cmd_queue)                      transfer, and writes
+   ibv_post_send(WRITE)   │                                              back responses / CQEs
+   ibv_poll_cq()         ─┘  ◄─────────  response / CQE  ◄─────────────
+```
 
-- **Headers / utilities**
-  - **`qbb-header.{h,cc}`**: ACK/NACK header (PG/seq/CNP-flag + optional INT header).
-  - **`cn-header.{h,cc}`**: CNP header (feedback fields: `fid/qIndex/ecnbits/qfb/total`).
-  - **`pause-header.{h,cc}`**: PFC pause header (`time/qlen/qindex`).
-  - **`pint.{h,cc}`**: PINT encode/decode utilities.
-  - **`trace-format.h`**: binary trace record structure `TraceFormat` used by offline analyzers.
+This is the **"bidirectional interaction"** at the heart of CLEM — the same mechanism the real
+system uses, only with the GPU/NCCL layer removed.
 
-## Where to implement new features (quick guide)
+---
 
-- **Add a new host-side congestion control (CC)**
-  - **Primary**: `rdma-hw.{h,cc}` (algorithm + dispatch by `CcMode`)
-  - **Often needed**: `rdma-queue-pair.h` (new per-QP state)
-  - **If switch feedback is required**: `switch-node.cc` (INT/PINT or new markings)
+## 3. Build and run the ns-3 backend
 
-- **Change switch behavior (buffer/ECN/PFC)**
-  - **Primary**: `switch-mmu.{h,cc}` (thresholds/curves/formulas)
-  - **Where marking/injection happens**: `switch-node.cc::SwitchNotifyDequeue()`
-  - **Where admission/priority is applied**: `switch-node.cc::SendToDev()`
+All commands below are run from the **root of this repository** (the directory that contains
+`simulation/` and `RDMA_demo/`).
 
-- **Introduce a new control packet/header**
-  - **Primary**: add a new `*Header` in `model/` (follow `CnHeader` / `PauseHeader`)
-  - **Parsing/dispatch**: usually in `QbbNetDevice::Receive()` (device-level) or `RdmaHw::Receive()` (host stack)
-  - **Note**: if you need it parsed by `CustomHeader`, you’ll also need to extend the `custom-header` implementation (outside this folder).
+### 3.1 Build
 
-# Contact us
+```bash
+cd simulation/
+source build.sh          # see simulation/build.sh for details
+```
 
-Please email Gang Lu (yunding.lg@alibaba-inc.com), Feiyang Xue (xuefeiyang.xfy@alibaba-inc.com) or Qingxu Li (qingxu.lqx@alibaba-inc.com) if you have any questions.
+### 3.2 Run
 
-Welcome to join the SimAI community chat groups, with the DingTalk group on the left and the WeChat group on the right.
+Start the ns-3 simulation engine. It **must be running before** any CCL / demo process, so that the
+IPC handshake and the shared-memory segments are ready:
 
-<div style="display: flex; justify-content: flex-start; align-items: center; gap: 20px; margin-left: 20px;">
-    <img src="./docs/images/simai_dingtalk.jpg" alt="SimAI DingTalk" style="width: 300px; height: auto;">
-    <img src="./docs/images/simai_wechat.jpg" alt="SimAI WeChat" style="width: 300px; height: auto;">
-</div>
+```bash
+cd simulation/
+./ns3 run 'scratch/QpReuseSimInfra {CONFIG_FILE_PATH} --numnodes={NUM_RANKS}'
+# For example:
+./ns3 run 'scratch/QpReuseSimInfra mix/incast/config_example.sh --numnodes=2'
+```
 
-<br/>
+- `{CONFIG_FILE_PATH}` — path to a configuration script, relative to `simulation/`. A fully
+  documented example is `mix/incast/config_example.sh`, which covers tunable parameters such as
+  topology and NIC settings.
+- `{NUM_RANKS}` — number of ranks / nodes in the task. Use **at least `2`** for `RDMA_demo`
+  (node 0 = server, node 1 = client).
+
+---
+
+## 4. `RDMA_demo`: code architecture and how to run
+
+### 4.1 Code architecture
+
+```
+RDMA_demo/
+├── nsibverbs/               # IBV Verbs implementation, copied verbatim from
+│   ├── command.cc           #   nccl_hack_rdma/src/nsibverbs/  (7 files, unmodified)
+│   ├── cq.cc  device.cc  event.cc  mr.cc  pd.cc  qp.cc
+├── include/                 # Headers (verbs.h / command.h adapted, debug.h is a stub)
+├── rdma_write_demo.cc       # The two-process RDMA WRITE demo (server & client in one binary)
+├── Makefile
+└── README.md                # Full details: build, expected output, walkthrough, FAQ
+```
+
+The demo builds into a single executable that plays both endpoints:
+
+- **server** (`-s`) — the *target* of the RDMA WRITE. It registers a buffer and waits to be written.
+- **client** (`-c`) — the *initiator*. It RDMA-WRITEs its local buffer into the server's buffer.
+
+All out-of-band metadata (QP number, GID, rkey, remote buffer address, `NODE_ID`) is exchanged over
+a plain **TCP socket** — the classic RDMA connection-setup ("handshake") pattern — while the actual
+RDMA operation flows through `nsibverbs` into the ns-3 backend.
+
+### 4.2 Run the demo
+
+**Prerequisite:** the ns-3 backend must be running (see §3), because `nsibverbs` talks to it through
+a shared-memory segment named `shm_nccl_ns3_<NODE_ID>` rather than to a real NIC.
+
+**Terminal 1 — start the ns-3 backend** (at least 2 nodes):
+
+```bash
+cd simulation/
+./ns3 run 'scratch/QpReuseSimInfra mix/incast/config_example.sh --numnodes=2'
+```
+
+**Terminal 2 — build and run the server** (target, node 0):
+
+```bash
+cd RDMA_demo
+make                                   # build once; produces ./rdma_write_demo
+export NODE_ID=0                       # this process = simulator node 0
+export NUM_GPUS_PER_SERVER=8
+export SIMU_ENABLE_GPU_P2P=false       # MUST be set; nsibverbs reads it unconditionally
+./rdma_write_demo -s -p 18515
+```
+
+**Terminal 3 — run the client** (initiator, node 1):
+
+```bash
+cd RDMA_demo
+export NODE_ID=1                       # this process = simulator node 1
+export NUM_GPUS_PER_SERVER=8
+export SIMU_ENABLE_GPU_P2P=false
+./rdma_write_demo -c 127.0.0.1 -p 18515
+```
+
+The server and client may run on the same host (hence `127.0.0.1`); what distinguishes them at the
+simulator level is the `NODE_ID` environment variable.
+
+| Variable | Required | Meaning |
+| :------- | :------- | :------ |
+| `NODE_ID` | Yes | This process's node id in the simulator (server = 0, client = 1) |
+| `NUM_GPUS_PER_SERVER` | Yes | GPUs per server; used by `nsibverbs` for same-server detection |
+| `SIMU_ENABLE_GPU_P2P` | Yes | Enables the `/proc/<pid>/mem` P2P fast-path. **Must be set** (e.g. `false`), otherwise `nsibverbs` dereferences a NULL `getenv()` result |
+| `RDMA_DEMO_VERBOSE` | No | If set, prints `nsibverbs` internal `INFO` logs |
+
+> For expected output, a line-by-line code walkthrough of `rdma_write_demo.cc`, and
+> troubleshooting / FAQ, see [`RDMA_demo/README.md`](RDMA_demo/README.md).
+
+---
+
+## License
+
+ns-3 is released under the GNU GPLv2. See [`LICENSE`](LICENSE) for the full terms.
