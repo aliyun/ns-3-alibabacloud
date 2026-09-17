@@ -518,7 +518,7 @@ def configure_cmake(cmake, args, current_cmake_cache_folder, current_cmake_gener
         else:
             if args.build_profile == "debug":
                 cmake_args.extend(
-                    "-DCMAKE_BUILD_TYPE=debug -DNS3_ASSERT=ON -DNS3_LOG=ON -DNS3_WARNINGS_AS_ERRORS=OFF".split())
+                    "-DCMAKE_BUILD_TYPE=debug -DNS3_ASSERT=ON -DNS3_LOG=ON -DNS3_WARNINGS_AS_ERRORS=ON".split())
             elif args.build_profile == "default":
                 cmake_args.extend(
                     "-DCMAKE_BUILD_TYPE=default -DNS3_ASSERT=ON -DNS3_LOG=ON -DNS3_WARNINGS_AS_ERRORS=OFF".split())
@@ -597,11 +597,11 @@ def configure_cmake(cmake, args, current_cmake_cache_folder, current_cmake_gener
     cmake_args.append("..")  # for now, assuming the cmake_cache directory is inside the ns-3-dev folder
 
     # Echo out the configure command
-    # print_and_buffer("cd %s; %s ; cd %s" % (os.path.relpath(current_cmake_cache_folder, ns3_path),
-    #                                         " ".join(cmake_args),
-    #                                         os.path.relpath(ns3_path, current_cmake_cache_folder)
-    #                                         )
-    #                  )
+    print_and_buffer("cd %s; %s ; cd %s" % (os.path.relpath(current_cmake_cache_folder, ns3_path),
+                                            " ".join(cmake_args),
+                                            os.path.relpath(ns3_path, current_cmake_cache_folder)
+                                            )
+                     )
 
     # Run cmake
     if not dry_run:
@@ -729,11 +729,11 @@ def cmake_build(current_cmake_cache_folder, output, jobs, target=None, dry_run=F
     target_part = (" --target %s" % target) if target else ""
     cmake_build_command = "cmake --build . %s%s" % (jobs_part, target_part)
 
-    # print_and_buffer("cd %s; %s ; cd %s" % (os.path.relpath(current_cmake_cache_folder, ns3_path),
-    #                                         cmake_build_command,
-    #                                         os.path.relpath(ns3_path, current_cmake_cache_folder)
-    #                                         )
-    #                  )
+    print_and_buffer("cd %s; %s ; cd %s" % (os.path.relpath(current_cmake_cache_folder, ns3_path),
+                                            cmake_build_command,
+                                            os.path.relpath(ns3_path, current_cmake_cache_folder)
+                                            )
+                     )
     if not dry_run:
         # Assume quiet is not enabled, and print things normally
         kwargs = {"stdout": None,

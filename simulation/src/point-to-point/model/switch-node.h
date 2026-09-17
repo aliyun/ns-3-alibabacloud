@@ -16,6 +16,19 @@ class SwitchNode : public Node{
 	static const uint32_t qCnt = 8;	// Number of queues/priorities used
 	uint32_t m_ecmpSeed;
 	std::unordered_map<uint32_t, std::vector<int> > m_rtTable; // map from ip address (u32) to possible ECMP port (index of dev)
+	// --------------------------------------------------------------------------
+	// 在智算服务器中 有的服务器是8GPU对应4张网卡 但是我们在NS3中实现的是每个GPU为一个Node 所以不可能两个GPU公用一张网卡
+	// 所以在这种情况下 目前的实现是 如果是8GPU对应4网卡的机型 每个GPU的网卡带宽是原本网卡带宽的一半
+	// 这种实现保证了实际场景与模拟场景的理论带宽上限是一致的 但是忽略了交换机的行为的不同————在实际情况
+	std::unordered_map<uint32_t, uint32_t> m_ip_address_map;
+	// For ECMP hash observation
+
+	std::unordered_map<int, int> m_out_idx_to_next_node_map;
+	// five tuple
+	std::unordered_map<std::string, int > m_5tuple_to_outDevIdx_map;
+	std::unordered_map<std::string, int > m_5tuple_to_next_node_map;
+	std::string GetFiveTupleFromPacket(CustomHeader &ch);
+	// --------------------------------------------------------------------------
 	std::set<uint32_t> active_ports;	// record active ports in switch
 
 	// monitor of PFC
@@ -29,6 +42,7 @@ class SwitchNode : public Node{
 
 protected:
 	bool m_ecnEnabled;
+	bool m_pfcEnabled;
 	uint32_t m_ccMode;
 	uint64_t m_maxRtt;
 
@@ -47,6 +61,7 @@ public:
 	SwitchNode();
 	void SetEcmpSeed(uint32_t seed);
 	void AddTableEntry(Ipv4Address &dstAddr, uint32_t intf_idx);
+	void AddIntf2NodeMap(int intf_idx, int nodeId);
 	void ClearTable();
 	bool SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader &ch);
 	void SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p);

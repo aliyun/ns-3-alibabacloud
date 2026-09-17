@@ -31,6 +31,7 @@ build_lib(
     model/qbb-header.cc
     model/qbb-channel.cc
     model/qbb-remote-channel.cc
+    model/rdma-congestion-ops.cc
     model/rdma-driver.cc
     model/rdma-queue-pair.cc
     model/rdma-hw.cc
@@ -53,6 +54,7 @@ build_lib(
     model/qbb-header.h
     model/qbb-channel.h
     model/qbb-remote-channel.h
+    model/rdma-congestion-ops.h
     model/rdma-driver.h
     model/rdma-queue-pair.h
     model/rdma-hw.h

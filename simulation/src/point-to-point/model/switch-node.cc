@@ -14,6 +14,7 @@
 #include <cmath>
 
 namespace ns3 {
+NS_OBJECT_ENSURE_REGISTERED(SwitchNode);
 
 TypeId SwitchNode::GetTypeId (void)
 {
@@ -25,6 +26,11 @@ TypeId SwitchNode::GetTypeId (void)
 			BooleanValue(false),
 			MakeBooleanAccessor(&SwitchNode::m_ecnEnabled),
 			MakeBooleanChecker())
+	.AddAttribute("PfcEnabled",
+			"Enable PFC.",
+			BooleanValue(true),
+            MakeBooleanAccessor(&SwitchNode::m_pfcEnabled),
+            MakeBooleanChecker())
 	.AddAttribute("CcMode",
 			"CC mode.",
 			UintegerValue(0),
@@ -60,6 +66,30 @@ SwitchNode::SwitchNode(){
 		m_u[i] = 0;
 }
 
+std::string SwitchNode::GetFiveTupleFromPacket(CustomHeader &ch) {
+	std::string src_ip = std::to_string(ch.sip);
+	std::string dst_ip = std::to_string(ch.dip);
+	std::string l3Protocol,src_port, dst_port;
+	if (ch.l3Prot == 0x6)
+	{
+		l3Protocol = "TCP";
+		src_port = std::to_string(ch.tcp.sport);
+		dst_port = std::to_string(ch.tcp.dport);
+	}
+	else if (ch.l3Prot == 0x11)
+	{
+		l3Protocol = "UDP";
+		src_port = std::to_string(ch.udp.sport);
+		dst_port = std::to_string(ch.udp.dport);
+	}
+	else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+	{
+		l3Protocol = "ACK";
+		src_port = std::to_string(ch.ack.sport);
+		dst_port = std::to_string(ch.ack.dport);
+	}
+	return src_ip + "_" + dst_ip + "_" + src_port + "_" + dst_port + "_" + l3Protocol;
+}
 int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 	// look up entries
 	auto entry = m_rtTable.find(ch.dip);
@@ -71,37 +101,52 @@ int SwitchNode::GetOutDev(Ptr<const Packet> p, CustomHeader &ch){
 	// entry found
 	auto &nexthops = entry->second;
 
-	// pick one next hop based on hash
-	union {
-		uint8_t u8[4+4+2+2];
-		uint32_t u32[3];
-	} buf;
-	buf.u32[0] = ch.sip;
-	buf.u32[1] = ch.dip;
-	if (ch.l3Prot == 0x6)
-		buf.u32[2] = ch.tcp.sport | ((uint32_t)ch.tcp.dport << 16);
-	else if (ch.l3Prot == 0x11)
-		buf.u32[2] = ch.udp.sport | ((uint32_t)ch.udp.dport << 16);
-	else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
-		buf.u32[2] = ch.ack.sport | ((uint32_t)ch.ack.dport << 16);
+	if (nexthops.size() == 1) {
+		return nexthops[0];
+	} else {
+		// pick one next hop based on hash
+		union {
+			uint8_t u8[4+4+2+2];
+			uint32_t u32[3];
+		} buf;
+		buf.u32[0] = ch.sip;
+		buf.u32[1] = ch.dip;
+		if (ch.l3Prot == 0x6)
+			buf.u32[2] = ch.tcp.sport | ((uint32_t)ch.tcp.dport << 16);
+		else if (ch.l3Prot == 0x11)
+			buf.u32[2] = ch.udp.sport | ((uint32_t)ch.udp.dport << 16);
+		else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+			buf.u32[2] = ch.ack.sport | ((uint32_t)ch.ack.dport << 16);
 
-	uint32_t idx = EcmpHash(buf.u8, 12, m_ecmpSeed) % nexthops.size();
-	return nexthops[idx];
+		uint32_t idx = EcmpHash(buf.u8, 12, m_ecmpSeed) % nexthops.size();
+		std::string fivetuple = GetFiveTupleFromPacket(ch);
+		if(m_5tuple_to_next_node_map.count(fivetuple)==0) {
+			m_5tuple_to_outDevIdx_map[fivetuple] = nexthops[idx];
+			m_5tuple_to_next_node_map[fivetuple] = m_out_idx_to_next_node_map[nexthops[idx]];
+			if(ch.l3Prot == 0x11)
+				printf("For %s Send from Node %d to Node %d through DevIdx %d\n", fivetuple.c_str(), this->GetId(), m_5tuple_to_next_node_map[fivetuple], nexthops[idx]);
+		}
+		return nexthops[idx];
+	}
 }
 
 void SwitchNode::CheckAndSendPfc(uint32_t inDev, uint32_t qIndex){
+  if (m_pfcEnabled) {
 	Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
 	if (m_mmu->CheckShouldPause(inDev, qIndex)){
 		device->SendPfc(qIndex, 0);
 		m_mmu->SetPause(inDev, qIndex);
 	}
+  }
 }
 void SwitchNode::CheckAndSendResume(uint32_t inDev, uint32_t qIndex){
+  if (m_pfcEnabled) {
 	Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
 	if (m_mmu->CheckShouldResume(inDev, qIndex)){
 		device->SendPfc(qIndex, 1);
 		m_mmu->SetResume(inDev, qIndex);
 	}
+  }
 }
 
 void SwitchNode::SendToDev(Ptr<Packet>p, CustomHeader &ch){
@@ -186,6 +231,10 @@ void SwitchNode::AddTableEntry(Ipv4Address &dstAddr, uint32_t intf_idx){
 	m_rtTable[dip].push_back(intf_idx);
 }
 
+void SwitchNode::AddIntf2NodeMap(int intf_idx, int nodeId){
+	m_out_idx_to_next_node_map[intf_idx] = nodeId;
+}
+
 void SwitchNode::ClearTable(){
 	m_rtTable.clear();
 }
@@ -207,6 +256,7 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 		if (m_ecnEnabled){
 			bool egressCongested = m_mmu->ShouldSendCN(ifIndex, qIndex);
 			if (egressCongested){
+				// printf("Switch Node %d Set ECN\n",GetId());
 				PppHeader ppp;
 				Ipv4Header h;
 				p->RemoveHeader(ppp);
@@ -341,14 +391,10 @@ void SwitchNode::PrintSwitchQlen(FILE* qlen_output){
 		for(uint32_t j=0; j < qCnt; ++j){
 			port_len += m_mmu->egress_bytes[i][j];
 		}
-		if(port_len == last_port_qlen[i]){
-			continue;
-		}
 		for(uint32_t j=0; j < qCnt; ++j){
 			fprintf(qlen_output, "%lu, %u, %u, %u, %u, %lu\n", Simulator::Now().GetTimeStep(), m_id, i, j, m_mmu->egress_bytes[i][j], port_len);
 			fflush(qlen_output);
 		}
-		last_port_qlen[i] = port_len;
 	}		
 }
 

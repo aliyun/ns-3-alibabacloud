@@ -1,0 +1,103 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch NormalNetwork-simulator debuger",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/scratch/ns3.36.1-NormalNetwork-default",
+            "args": [
+                "mix/mix_coalesce/configs/ipdcqcn_qpdcqcn_50_50_pfc/config_CLOS_8qp_30_2_in1tor.txt",
+                "--commscale=1"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/build/lib/"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+            ],
+        },
+        {
+            "name": "(gdb) Launch QpReuseNetwork-simulator debuger",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/scratch/ns3.36.1-QpReuseNetwork-default",
+            "args": [
+                "mix/qpreuse/configs/dcqcn_perip_nopfc/config_CLOS_10flows_1_1_clos.txt",
+                "--commscale=1"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/build/lib/"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+            ],
+        },
+        {
+            "name": "(gdb) Launch AstraSimNetwork-simulator debuger",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/scratch/ns3.36.1-AstraSimNetwork-default",
+            "args": [
+                "mix/astra/config_HPN_7_0_8gpus_1server_qp2.txt"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/build/lib/"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+            ],
+        }
+    ],
+    "inputs": [
+        {
+            "type": "pickString",
+            "id": "buildType",
+            "description": "What is the build option?",
+            "options": [
+                "debug",
+                "default",
+                "optimized",
+                "release",
+                "minsizerel"
+            ],
+            "default": "default"
+        }
+    ]
+}

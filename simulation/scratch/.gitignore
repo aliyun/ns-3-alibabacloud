@@ -4,3 +4,9 @@
 !subdir/
 !scratch-simulator.cc
 !CMakeLists.txt
+!common.h
+!config.h
+!timer-interface.h
+!NormalNetwork.cc
+!QpReuseNetwork.cc
+!QpReuseSimInfra.cc
