@@ -1,11 +1,11 @@
 /*
  * rdma_write_demo.cc
  * ============================================================================
- * CLEM RDMA_demo —— 两进程 RDMA WRITE 演示程序
+ * SimAI-CLEM RDMA_demo —— 两进程 RDMA WRITE 演示程序
  * ============================================================================
  *
  * 【这个 demo 想说明什么】
- *   在没有任何 GPU、也没有真实 RNIC（RDMA 网卡）的环境下，演示 CLEM 最核心的
+ *   在没有任何 GPU、也没有真实 RNIC（RDMA 网卡）的环境下，演示 SimAI-CLEM 最核心的
  *   「双向交互框架 (bidirectional interaction framework)」设计思想：
  *
  *     ┌──────────────────────────────────────────────────────────────┐
@@ -25,7 +25,7 @@
  *                     │  (共享内存 shm_nccl_ns3_<NODE_ID>)
  *                     ▼
  *     ┌──────────────────────────────────────────────────────────────┐
- *     │  ns-3 网络模拟器后端 (simulator-network)                       │
+ *     │  ns-3 网络模拟器后端 (ns-3-alibabacloud)                       │
  *     │     消费命令、模拟 RDMA 网络传输、回填响应与 CQE               │
  *     └──────────────────────────────────────────────────────────────┘
  *
@@ -76,7 +76,7 @@ struct conn_meta {
   uint32_t      qp_num;   // 本端 QP 号
   uint32_t      psn;      // packet sequence number
   uint16_t      lid;      // IB local id (RoCE 下可为 0)
-  uint32_t      node_id;  // CLEM: 本进程的 NODE_ID (将被编码进对端 dgid)
+  uint32_t      node_id;  // SimAI-CLEM: 本进程的 NODE_ID (将被编码进对端 dgid)
   uint64_t      rkey;     // 允许远端读写本端 buffer 的 remote key
   uint64_t      vaddr;    // 本端 buffer 的虚拟地址 (远端 RDMA WRITE 的目标)
   union ibv_gid gid;      // 本端 GID (RoCE)
@@ -151,7 +151,7 @@ static int tcp_client_connect(const char *server_ip, int port) {
 }
 
 // ======================= 连接 ns-3 timer socket =======================
-// 【CLEM 启动握手，必需步骤】
+// 【SimAI-CLEM 启动握手，必需步骤】
 // ns-3 后端的 InitializeTimerInterface() 会为每个 node 在端口 (13000 + node_id)
 // 上 listen，并【阻塞式 accept】等待对应的应用进程来建联；只有所有 node 都连上后，
 // ns-3 才会继续执行 InstallRdmaApps() -> StartApplication() 去创建共享内存段
@@ -208,7 +208,7 @@ static int qp_to_rtr(struct ibv_qp *qp, const struct conn_meta *remote) {
 
   attr.ah_attr.is_global    = 1;              // RoCE 需要 GRH
   attr.ah_attr.grh.dgid     = remote->gid;    // 对端 GID (来自 TCP 交换)
-  // ===== CLEM 关键约定 =====
+  // ===== SimAI-CLEM 关键约定 =====
   // nsibverbs 的 ibv_modify_qp() 会从 dgid.global.interface_id 的【高 32 位】解析出
   // remote_node_id，并存入 qp->handle；之后 post_send 依据该 handle 在共享内存中
   // 定位对端节点。因此这里把通过 TCP 收到的对端 node_id 显式编码进 dgid 的高 32 位。
@@ -249,13 +249,13 @@ static void usage(const char *prog) {
     "  server 端: %s -s [-p tcp_port]\n"
     "  client 端: %s -c <server_ip> [-p tcp_port]\n"
     "\n"
-    "nsibverbs(CLEM) 依赖的环境变量【运行前必须设置】:\n"
+    "nsibverbs(SimAI-CLEM) 依赖的环境变量【运行前必须设置】:\n"
     "  NODE_ID               本进程在模拟器中的节点号 (如 server=0, client=1)\n"
     "  NUM_GPUS_PER_SERVER   每台服务器的 GPU 数 (如 8)\n"
     "  SIMU_ENABLE_GPU_P2P   必须设置(如 \"false\")；nsibverbs 会无条件读取它\n"
     "  RDMA_DEMO_VERBOSE     (可选) 设置后打印 nsibverbs 内部 INFO 日志\n"
     "\n"
-    "前置条件: ns-3 后端(simulator-network)必须已经启动，并已创建好共享内存段\n"
+    "前置条件: ns-3 后端(ns-3-alibabacloud)必须已经启动，并已创建好共享内存段\n"
     "          'shm_nccl_ns3_<NODE_ID>'，否则 ibv_get_device_list 会失败。\n",
     prog, prog);
 }
@@ -278,7 +278,7 @@ int main(int argc, char **argv) {
   if (is_server < 0 || (is_server == 0 && server_ip == NULL)) { usage(argv[0]); return 1; }
 
   const char *role = is_server ? "server" : "client";
-  fprintf(stdout, "==== CLEM RDMA_demo [%s] 启动 ====\n", role);
+  fprintf(stdout, "==== SimAI-CLEM RDMA_demo [%s] 启动 ====\n", role);
 
   // ---- 2. 检查 nsibverbs 必需的环境变量 ----
   // 注意: nsibverbs 的 shm_ibv_post_send 会执行 strcmp(getenv("SIMU_ENABLE_GPU_P2P"),"true")，
@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
   fprintf(stdout, "[ENV] NODE_ID=%s NUM_GPUS_PER_SERVER=%s SIMU_ENABLE_GPU_P2P=%s\n",
           getenv("NODE_ID"), getenv("NUM_GPUS_PER_SERVER"), getenv("SIMU_ENABLE_GPU_P2P"));
 
-  // ---- 2.5 连接 ns-3 timer socket（CLEM 启动握手，必须！）----
+  // ---- 2.5 连接 ns-3 timer socket（SimAI-CLEM 启动握手，必须！）----
   // ns-3 阻塞在 InitializeTimerInterface() 里 accept 每个 node 的 13000+NODE_ID 连接，
   // 全部 accept 后才创建共享内存段。若跳过此步，ns-3 永久阻塞、后续 IBV 初始化必然失败。
   int node_id = atoi(getenv("NODE_ID"));
@@ -489,7 +489,7 @@ int main(int argc, char **argv) {
       fprintf(stdout, "[server] ✅ 校验成功：buffer 已被 client 通过 RDMA WRITE 写入预期数据！\n");
     } else {
       fprintf(stdout, "[server] ℹ️ buffer 内容未变化：控制面(QP 建立、post_send 命令下发)已成功走通\n"
-                      "          CLEM 双向交互框架；数据面是否真正搬运取决于 ns-3 后端的 RDMA 模拟实现。\n");
+                      "          SimAI-CLEM 双向交互框架；数据面是否真正搬运取决于 ns-3 后端的 RDMA 模拟实现。\n");
     }
   }
 

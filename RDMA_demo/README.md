@@ -1,22 +1,22 @@
-# CLEM RDMA_demo
+# SimAI-CLEM RDMA_demo
 
 A minimal, **GPU-free** and **RNIC-free** two-process **RDMA WRITE** demonstration.
 
-This is a self-contained teaching example that illustrates the design philosophy of CLEM's
+This is a self-contained teaching example that illustrates the design philosophy of SimAI-CLEM's
 core **bidirectional interaction framework**: how an ordinary application's IBV Verbs calls
 are intercepted by `nsibverbs` and forwarded to the ns-3 network simulator through shared
 memory — instead of going to a physical RDMA NIC.
 
-> The demo reuses **exactly the same Verbs implementation** as the real CLEM
+> The demo reuses **exactly the same Verbs implementation** as the real SimAI-CLEM
 > (`nccl_hack_rdma/src/nsibverbs/`), but strips away the NCCL / CUDA / GPU dependencies.
-> So even without a GPU, you can read, build and understand how CLEM redirects RDMA traffic
+> So even without a GPU, you can read, build and understand how SimAI-CLEM redirects RDMA traffic
 > into the simulator.
 
 ---
 
 ## 1. Background
 
-In the full CLEM system, native NCCL runs on real GPUs. Every RDMA operation NCCL issues
+In the full SimAI-CLEM system, native NCCL runs on real GPUs. Every RDMA operation NCCL issues
 (through the IBV Verbs API) is intercepted by `nsibverbs` and redirected to the ns-3
 simulator rather than to a physical RNIC. Reproducing that end-to-end normally requires GPUs.
 
@@ -113,15 +113,15 @@ make clean
 a shared-memory segment named `shm_nccl_ns3_<NODE_ID>`. Therefore, before running the demo you
 must have the ns-3 backend running so that this segment exists.
 
-> This demo lives **inside** the `simulator-network` repository
+> This demo lives **inside** the `ns-3-alibabacloud` repository
 > ([`aliyun/ns-3-alibabacloud`](https://github.com/aliyun/ns-3-alibabacloud), branch
-> [`feat/ipc-middleware`](https://github.com/aliyun/ns-3-alibabacloud/tree/feat/ipc-middleware)),
+> [`dev/clem`](https://github.com/aliyun/ns-3-alibabacloud/tree/dev/clem)),
 > alongside the ns-3 backend in the sibling `simulation/` directory. Build the backend first
 > (see the top-level project README), then start it before running the demo.
 
 ### 5.2 Step 1 — Start the ns-3 backend (Terminal 1)
 
-From the **root of the `simulator-network` repository** (the directory that also contains
+From the **root of the `ns-3-alibabacloud` repository** (the directory that also contains
 this `RDMA_demo/`), start the backend with **at least 2 nodes** (node 0 for the server,
 node 1 for the client):
 
@@ -169,7 +169,7 @@ export SIMU_ENABLE_GPU_P2P=false
 **Client** (initiator):
 
 ```
-==== CLEM RDMA_demo [client] 启动 ====
+==== SimAI-CLEM RDMA_demo [client] 启动 ====
 [ENV] NODE_ID=1 NUM_GPUS_PER_SERVER=8 SIMU_ENABLE_GPU_P2P=false
 [TCP] 已连接到 server 127.0.0.1:18515
 [IBV] 发现 N 个模拟设备，使用 ns3_qbbdev_0
@@ -188,7 +188,7 @@ export SIMU_ENABLE_GPU_P2P=false
 **Server** (target):
 
 ```
-==== CLEM RDMA_demo [server] 启动 ====
+==== SimAI-CLEM RDMA_demo [server] 启动 ====
 [TCP] 正在端口 18515 监听，等待对端连接...
 [TCP] 对端已连接。
 [QP] RTR   -> RTS  完成，QP 已就绪
@@ -199,7 +199,7 @@ export SIMU_ENABLE_GPU_P2P=false
 ```
 
 > **Note on the data plane:** the *control plane* (device open, QP creation/state transitions,
-> `post_send` command dispatch, CQE polling) always flows through the CLEM framework shown above.
+> `post_send` command dispatch, CQE polling) always flows through the SimAI-CLEM framework shown above.
 > Whether the server's buffer bytes are *physically* updated depends on how the ns-3 backend
 > emulates the actual data movement. If the buffer is unchanged, the demo prints an informational
 > message instead of failing — the interaction framework itself has still been exercised end to end.
@@ -218,7 +218,7 @@ minimally adapted so the code can compile **without NCCL, CUDA, or the system RD
 | `include/debug.h` | A minimal stub (not copied from NCCL) providing `WARN` / `INFO` macros | The original depends on `nccl.h` and `ncclDebugLog()` |
 
 Everything else (the shared-memory command protocol, `context->ops` dispatch, the
-`dgid → remote_node_id` convention) is identical to the real CLEM.
+`dgid → remote_node_id` convention) is identical to the real SimAI-CLEM.
 
 ---
 
@@ -235,7 +235,7 @@ The `main()` flow mirrors a textbook RC RDMA WRITE program:
 5. **Exchange `conn_meta` over TCP** — the out-of-band handshake.
 6. **QP state machine** — `RESET → INIT → RTR → RTS` via `ibv_modify_qp`.
    - In `qp_to_rtr()`, the peer's `node_id` is encoded into the **high 32 bits** of
-     `ah_attr.grh.dgid.global.interface_id`. This is the CLEM convention: `nsibverbs`'s
+     `ah_attr.grh.dgid.global.interface_id`. This is the SimAI-CLEM convention: `nsibverbs`'s
      `ibv_modify_qp` extracts it back into `qp->handle`, which later tells `post_send`
      which simulator node is the destination.
 7. **Client posts `IBV_WR_RDMA_WRITE`** — `ibv_post_send()` → `shm_ibv_post_send()` →

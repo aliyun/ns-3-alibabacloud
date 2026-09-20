@@ -21,7 +21,7 @@ QP_MON_INTERVAL 500
 
 # Trace is disabled by default in CLEM.
 ENABLE_TRACE 0
-# TRACE_FILE /etc/CLEM/simulator-network/simulation/mix/trace1.txt
+# TRACE_FILE /etc/CLEM/ns-3-alibabacloud/simulation/mix/trace1.txt
 # TRACE_OUTPUT_FILE /home/tmp/astra-sim/incast/incast_sample/mix.tr
 
 # VAR SETTINGS
@@ -53,7 +53,7 @@ ns3::IbvInterface::SendLatency 8000
 # NS3 SETTINGS
 # The following configurable parameters consistent with SimAI.
 # Refer to the corresponding class definition files for details 
-# ( e.g., find ns3::QbbNetDevice::QcnEnabled in simulator-network/simulation/src/point-to-point/model/qbb-net-device.cc)
+# ( e.g., find ns3::QbbNetDevice::QcnEnabled in ns-3-alibabacloud/simulation/src/point-to-point/model/qbb-net-device.cc)
 
 ns3::QbbNetDevice::QcnEnabled true
 ns3::QbbNetDevice::DynamicThreshold true

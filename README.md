@@ -1,8 +1,8 @@
-# CLEM ns-3 Network Backend
+# SimAI-CLEM ns-3 Network Backend
 
-This repository is the **network simulator** component of **CLEM** (Collective communication
+This repository is the **network simulator** component of **SimAI-CLEM** (Collective communication
 Library EMulator). It is maintained on the
-[`feat/ipc-middleware`](https://github.com/aliyun/ns-3-alibabacloud/tree/feat/ipc-middleware)
+[`dev/SimAI-CLEM`](https://github.com/aliyun/ns-3-alibabacloud/tree/dev/SimAI-CLEM)
 branch. It provides an ns-3-based backend that emulates the point-to-point (P2P) communication of
 a Collective Communications Library (CCL), together with a **GPU-free** demonstration
 ([`RDMA_demo/`](RDMA_demo/)) of how an application interacts with this backend.
@@ -11,23 +11,23 @@ a Collective Communications Library (CCL), together with a **GPU-free** demonstr
 
 ## 1. What this ns-3 version is for
 
-CLEM is a CCL emulator that runs a **vanilla CCL directly on GPU hardware**, while **intercepting
+SimAI-CLEM is a CCL emulator that runs a **vanilla CCL directly on GPU hardware**, while **intercepting
 the CCL's P2P communication primitives** and **redirecting them to a network simulator** that
 reproduces their behavior. This makes it possible to study large-scale collective communication
 under realistic, non-stationary network conditions without deploying a full physical cluster.
 
-CLEM is built from three cooperating components:
+SimAI-CLEM is built from three cooperating components:
 
 - **Modified CCL (`nccl_hack_rdma`)** — hosts the **API Navigator**, which captures the CCL's
   RDMA/P2P calls (e.g. `ibv_post_send`) and reroutes them to the simulator middleware instead of a
   physical RNIC.
-- **This ns-3 backend (`simulator-network`)** — receives the redirected calls and **simulates the
+- **This ns-3 backend (`ns-3-alibabacloud`)** — receives the redirected calls and **simulates the
   behavior of those P2P primitives**: the actual data transfer, congestion control, and timing.
 - **Instrumented tests (`nccl-tests-modify`)** — drive the collective workloads and expose the
   simulated network time back to the application.
 
 **This repository is the ns-3 backend — it exists precisely to simulate the intercepted P2P
-primitives on behalf of CLEM.**
+primitives on behalf of SimAI-CLEM. For detailed instructions on running SimAI-CLEM, please refer to [https://github.com/aliyun/SimAI-CLEM/blob/master/README.md](https://github.com/aliyun/SimAI-CLEM/blob/master/README.md).**
 
 To let ns-3 understand and respond to IBV Verbs-style calls coming from the CCL, we extend ns-3
 with a set of custom classes:
@@ -45,13 +45,13 @@ relationships, refer to the inline code comments and the material under [`docs/`
 
 ## 2. A GPU-free way in: `RDMA_demo`
 
-The **full** CLEM pipeline requires the CCL process to run on **real GPUs**. To let users read,
-build, and understand CLEM's core **bidirectional interaction framework** even *without* a GPU (or a
+The **full** SimAI-CLEM pipeline requires the CCL process to run on **real GPUs**. To let users read,
+build, and understand SimAI-CLEM's core **bidirectional interaction framework** even *without* a GPU (or a
 physical RNIC), this repository ships a self-contained teaching example under
 [`RDMA_demo/`](RDMA_demo/).
 
 `RDMA_demo` is a minimal, **GPU-free** and **RNIC-free** two-process **RDMA WRITE** program. It
-**reuses exactly the same Verbs implementation as the real CLEM** (`nsibverbs`, copied verbatim
+**reuses exactly the same Verbs implementation as the real SimAI-CLEM** (`nsibverbs`, copied verbatim
 from `nccl_hack_rdma/src/nsibverbs/`) but strips away the NCCL / CUDA / GPU dependencies. It
 illustrates the essential interaction loop: an application's IBV Verbs call is intercepted by
 `nsibverbs`, translated into a command, and pushed down to the ns-3 simulator through shared
@@ -71,7 +71,7 @@ pushed back up to the application.
    ibv_poll_cq()         ─┘  ◄─────────  response / CQE  ◄─────────────
 ```
 
-This is the **"bidirectional interaction"** at the heart of CLEM — the same mechanism the real
+This is the **"bidirectional interaction"** at the heart of SimAI-CLEM — the same mechanism the real
 system uses, only with the GPU/NCCL layer removed.
 
 ---
