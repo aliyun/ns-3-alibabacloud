@@ -1,6 +1,6 @@
 # ============================================================================
 # RDMA_demo Makefile
-#   编译 CLEM 的两进程 RDMA WRITE 演示程序。
+#   编译 SimAI-CLEM 的两进程 RDMA WRITE 演示程序。
 #   Verbs API 实现全部来自本目录 nsibverbs/（copy 自 nccl_hack_rdma/src/nsibverbs/），
 #   不依赖系统 libibverbs、不依赖 CUDA、不依赖 GPU。
 #

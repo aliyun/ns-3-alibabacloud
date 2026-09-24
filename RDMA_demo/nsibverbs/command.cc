@@ -2,6 +2,7 @@
 #include "debug.h"
 #include <sys/time.h>
 #include <fstream>
+#include <iostream>
 uint32_t ascending_cmd_id = 0;
 std::vector<int64_t> pollTimeVector;
 std::ofstream outFile("pollTimeVector.txt");
