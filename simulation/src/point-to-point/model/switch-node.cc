@@ -10,6 +10,7 @@
 #include "qbb-net-device.h"
 #include "ppp-header.h"
 #include "ns3/int-header.h"
+#include "ns3/simple-seq-ts-header.h"
 #include "ns3/simulator.h"
 #include <cmath>
 
@@ -222,7 +223,15 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 	if (1){
 		uint8_t* buf = p->GetBuffer();
 		if (buf[PppHeader::GetStaticSize() + 9] == 0x11){ // udp packet
-			IntHeader *ih = (IntHeader*)&buf[PppHeader::GetStaticSize() + 20 + 8 + 6]; // ppp, ip, udp, SeqTs, INT
+			// 数据包的 UDP 载荷由 SimpleSeqTsHeader 构造：先写 seq 和 PG，再写 INT 头。
+			// 用序列化长度之差计算 seq/PG 前缀，避免把 C++ 对象 sizeof 或固定偏移当成线上格式。
+			const uint32_t kIpv4HeaderBytes = 20;
+			const uint32_t kUdpHeaderBytes = 8;
+			const uint32_t kSeqTsPrefixBytes =
+				SimpleSeqTsHeader::GetHeaderSize() - IntHeader::GetStaticSize();
+			IntHeader *ih = reinterpret_cast<IntHeader*>(
+				&buf[PppHeader::GetStaticSize() + kIpv4HeaderBytes +
+					 kUdpHeaderBytes + kSeqTsPrefixBytes]);
 			Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(m_devices[ifIndex]);
 			if (m_ccMode == 3){ // HPCC
 				ih->PushHop(Simulator::Now().GetTimeStep(), m_txBytes[ifIndex], dev->GetQueue()->GetNBytesTotal(), dev->GetDataRate().GetBitRate());
